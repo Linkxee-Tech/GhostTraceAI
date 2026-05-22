@@ -1,0 +1,30 @@
+# Sample Google Cloud Agent Builder manifest for GhostTrace AI
+# Replace placeholders with your own GCP project, region, and agent ID.
+# This file is intended as an explicit GCAB configuration example for hackathon deployment.
+
+apiVersion: agentbuilder.googleapis.com/v1alpha1
+kind: Agent
+metadata:
+  name: ghosttrace-fraud-agent
+  displayName: GhostTrace AI Fraud Agent
+  description: Real-time fraud detection with Gemini 3, MongoDB Atlas, and MCP tools.
+  labels:
+    hackathon: google-cloud-rapid-agent-2026
+spec:
+  projectId: your-gcp-project-id
+  location: us-central1
+  agentId: ghosttrace-agent
+  model: gemini-3.0-pro
+  runtime:
+    type: nodejs
+    entryPoint: backend/src/index.js
+  environment:
+    GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+    GEMINI_MODEL: gemini-3.0-pro
+    MONGODB_URI: ${MONGODB_URI}
+    MONGODB_DB_NAME: ${MONGODB_DB_NAME}
+    MCP_SERVER_PORT: ${MCP_SERVER_PORT}
+    MCP_AUTH_SECRET: ${MCP_AUTH_SECRET}
+    AGENT_BUILDER_AGENT_ID: ${AGENT_BUILDER_AGENT_ID}
+    GOOGLE_CLOUD_REGION: ${GOOGLE_CLOUD_REGION}
+    JWT_SECRET: ${JWT_SECRET}

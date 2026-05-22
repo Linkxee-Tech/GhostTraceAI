@@ -1,0 +1,40 @@
+# ── Stage 1: Dependencies ──────────────────────────────────────
+FROM node:20-alpine AS deps
+
+WORKDIR /app
+
+# Copy package files only for cache efficiency
+COPY backend/package.json ./
+
+RUN npm install --production --ignore-scripts && \
+    npm cache clean --force
+
+# ── Stage 2: Production image ──────────────────────────────────
+FROM node:20-alpine AS runner
+
+# Security: run as non-root user
+RUN addgroup -g 1001 -S ghosttrace && \
+    adduser  -u 1001 -S ghosttrace -G ghosttrace
+
+WORKDIR /app
+
+# Copy production node_modules from deps stage
+COPY --from=deps  /app/node_modules ./node_modules
+
+# Copy source
+COPY backend/src ./src
+COPY backend/package.json ./
+
+# Use non-root user
+USER ghosttrace
+
+# Cloud Run uses PORT env var
+ENV NODE_ENV=production
+ENV PORT=8080
+EXPOSE 8080
+
+# Health check for Cloud Run
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:8080/api/v1/health || exit 1
+
+CMD ["node", "src/index.js"]

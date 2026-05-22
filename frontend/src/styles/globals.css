@@ -1,0 +1,112 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --gt-bg:       #0a0c0f;
+  --gt-surface:  #0f1318;
+  --gt-surface2: #151b23;
+  --gt-accent:   #00e5a0;
+  --gt-blue:     #0095ff;
+  --gt-danger:   #ff3b5c;
+  --gt-warn:     #ffb43a;
+  --gt-text:     #e8edf2;
+  --gt-muted:    #6b7a8d;
+  --gt-dim:      #3a4553;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: var(--gt-bg);
+  color: var(--gt-text);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--gt-dim); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gt-muted); }
+
+/* Utility classes */
+.font-mono  { font-family: 'Space Mono', monospace; }
+.font-display { font-family: 'Syne', sans-serif; }
+
+/* Risk color helpers */
+.risk-critical { color: #ff3b5c; }
+.risk-high     { color: #ff6b35; }
+.risk-medium   { color: #ffb43a; }
+.risk-low      { color: #00e5a0; }
+
+/* Animated border for active items */
+@keyframes borderPulse {
+  0%, 100% { border-color: rgba(255, 59, 92, 0.3); }
+  50%       { border-color: rgba(255, 59, 92, 0.8); }
+}
+.border-pulse { animation: borderPulse 2s ease-in-out infinite; }
+
+/* Scan line overlay for cyber aesthetic */
+.scan-lines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+  pointer-events: none;
+}
+
+/* Number ticker animation */
+@keyframes countUp {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+.count-tick { animation: countUp 0.2s ease; }
+
+/* Tooltip */
+.gt-tooltip {
+  @apply absolute z-50 px-2 py-1 text-xs font-mono bg-gt-surface2 border border-gt-border2 rounded pointer-events-none whitespace-nowrap;
+}
+
+/* Range input (slider) cross-browser styling */
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e8edf2;
+  cursor: pointer;
+  border: 2px solid #0f1318;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.15);
+  transition: transform 0.15s;
+}
+input[type='range']::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e8edf2;
+  cursor: pointer;
+  border: 2px solid #0f1318;
+}
+input[type='range']:focus {
+  outline: none;
+}
+input[type='range']:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(0,229,160,0.35);
+}
