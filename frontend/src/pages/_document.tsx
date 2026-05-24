@@ -15,8 +15,8 @@ export default function Document() {
         />
 
         {/* Favicon */}
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <link rel="alternate icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" href="/ghosttrace_logo.png" />
+        <link rel="alternate icon" type="image/svg+xml" href="/favicon.svg" />
 
         {/* Meta */}
         <meta name="robots" content="noindex,nofollow" />

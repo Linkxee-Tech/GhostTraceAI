@@ -1,7 +1,8 @@
 import axios, { AxiosError } from 'axios';
 import type {
   ApiResponse, Transaction, FraudAlert,
-  AgentActionRecord, AnalystReview, DashboardStats
+  AgentActionRecord, AnalystReview, DashboardStats,
+  UserAccount,
 } from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -98,5 +99,154 @@ export interface SubmitTransactionResult {
 // ── Manual transaction submission (demo/testing) ─────────────
 export const submitTransaction = async (payload: Partial<Transaction>): Promise<SubmitTransactionResult> => {
   const { data } = await apiClient.post<ApiResponse<SubmitTransactionResult>>('/transactions', payload);
+  return data.data;
+};
+
+export interface LoginResult {
+  user: UserAccount;
+  token: string;
+}
+
+export const login = async (email: string, password: string): Promise<LoginResult> => {
+  const { data } = await apiClient.post<ApiResponse<LoginResult>>('/auth/login', { email, password });
+  return data.data;
+};
+
+export const fetchCurrentUser = async (): Promise<UserAccount> => {
+  const { data } = await apiClient.get<ApiResponse<UserAccount>>('/auth/me');
+  return data.data;
+};
+
+export const requestPasswordReset = async (email: string): Promise<void> => {
+  await apiClient.post('/auth/password-reset/request', { email });
+};
+
+export const completePasswordReset = async (token: string, password: string): Promise<void> => {
+  await apiClient.post('/auth/password-reset/complete', { token, password });
+};
+
+export const fetchUsers = async (): Promise<ApiResponse<UserAccount[]>> => {
+  const { data } = await apiClient.get<ApiResponse<UserAccount[]>>('/users');
+  return data;
+};
+
+export const createUserAccount = async (payload: { email: string; password: string; name?: string; role: string; }): Promise<UserAccount> => {
+  const { data } = await apiClient.post<ApiResponse<UserAccount>>('/users', payload);
+  return data.data;
+};
+
+export const updateUserAccount = async (userId: string, payload: Partial<UserAccount>): Promise<UserAccount> => {
+  const { data } = await apiClient.patch<ApiResponse<UserAccount>>(`/users/${userId}`, payload);
+  return data.data;
+};
+
+export const revokeUserSession = async (userId: string, sessionId: string): Promise<void> => {
+  await apiClient.delete(`/users/${userId}/sessions/${sessionId}`);
+};
+
+// ── MFA ──────────────────────────────────────────────────────
+export const verifyMFA = async (code: string): Promise<{ token: string }> => {
+  const { data } = await apiClient.post<ApiResponse<{ token: string }>>('/auth/mfa/verify', { code });
+  return data.data;
+};
+
+export const setupMFA = async (): Promise<{ qrCode: string; secret: string }> => {
+  const { data } = await apiClient.post<ApiResponse<{ qrCode: string; secret: string }>>('/auth/mfa/setup');
+  return data.data;
+};
+
+// ── Cases ────────────────────────────────────────────────────
+import type { FraudCase, WatchlistEntity, AuditLog, RuleConfig, GeneralSettings } from './types';
+
+export const fetchCases = async (params?: {
+  page?: number; limit?: number; status?: string; priority?: string;
+}): Promise<ApiResponse<FraudCase[]>> => {
+  const { data } = await apiClient.get<ApiResponse<FraudCase[]>>('/cases', { params });
+  return data;
+};
+
+export const fetchCase = async (caseId: string): Promise<FraudCase> => {
+  const { data } = await apiClient.get<ApiResponse<FraudCase>>(`/cases/${caseId}`);
+  return data.data;
+};
+
+export const createCase = async (payload: {
+  title: string; priority: string; relatedTxnIds?: string[]; relatedAlertIds?: string[];
+}): Promise<FraudCase> => {
+  const { data } = await apiClient.post<ApiResponse<FraudCase>>('/cases', payload);
+  return data.data;
+};
+
+export const updateCase = async (caseId: string, payload: {
+  status?: string; priority?: string; assignedTo?: string;
+}): Promise<FraudCase> => {
+  const { data } = await apiClient.patch<ApiResponse<FraudCase>>(`/cases/${caseId}`, payload);
+  return data.data;
+};
+
+export const addCaseNote = async (caseId: string, content: string): Promise<void> => {
+  await apiClient.post(`/cases/${caseId}/notes`, { content });
+};
+
+// ── Watchlist ─────────────────────────────────────────────────
+export const fetchWatchlist = async (params?: {
+  type?: string; search?: string;
+}): Promise<ApiResponse<WatchlistEntity[]>> => {
+  const { data } = await apiClient.get<ApiResponse<WatchlistEntity[]>>('/watchlist', { params });
+  return data;
+};
+
+export const addWatchlistEntity = async (payload: {
+  type: string; value: string; reason: string;
+}): Promise<WatchlistEntity> => {
+  const { data } = await apiClient.post<ApiResponse<WatchlistEntity>>('/watchlist', payload);
+  return data.data;
+};
+
+export const deleteWatchlistEntity = async (entityId: string): Promise<void> => {
+  await apiClient.delete(`/watchlist/${entityId}`);
+};
+
+// ── Audit Logs ───────────────────────────────────────────────
+export const fetchAuditLogs = async (params?: {
+  page?: number; limit?: number; action?: string; status?: string;
+}): Promise<ApiResponse<AuditLog[]>> => {
+  const { data } = await apiClient.get<ApiResponse<AuditLog[]>>('/audit-logs', { params });
+  return data;
+};
+
+// ── Rules / Models ───────────────────────────────────────────
+export const fetchRules = async (): Promise<RuleConfig[]> => {
+  const { data } = await apiClient.get<ApiResponse<RuleConfig[]>>('/rules');
+  return data.data;
+};
+
+export const updateRuleStatus = async (ruleId: string, status: 'Active' | 'Inactive'): Promise<void> => {
+  await apiClient.patch(`/rules/${ruleId}`, { status });
+};
+
+export const updateThresholds = async (payload: {
+  autoBlockThreshold: number; autoFlagThreshold: number;
+}): Promise<void> => {
+  await apiClient.patch('/rules/thresholds', payload);
+};
+
+// ── General Settings ─────────────────────────────────────────
+export const fetchSettings = async (): Promise<GeneralSettings> => {
+  const { data } = await apiClient.get<ApiResponse<GeneralSettings>>('/settings');
+  return data.data;
+};
+
+export const saveSettings = async (payload: Partial<GeneralSettings>): Promise<void> => {
+  await apiClient.patch('/settings', payload);
+};
+
+export const generateApiKey = async (name: string): Promise<{ key: string }> => {
+  const { data } = await apiClient.post<ApiResponse<{ key: string }>>('/settings/api-keys', { name });
+  return data.data;
+};
+
+export const testWebhook = async (url: string): Promise<{ success: boolean; statusCode: number }> => {
+  const { data } = await apiClient.post<ApiResponse<{ success: boolean; statusCode: number }>>('/settings/webhooks/test', { url });
   return data.data;
 };

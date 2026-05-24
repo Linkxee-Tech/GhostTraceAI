@@ -3,10 +3,12 @@
 import React, { useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import { login } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [apiKey, setApiKey]     = useState('');
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
 
@@ -14,39 +16,18 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
 
-    if (!apiKey.trim()) {
-      setError('API key is required');
+    if (!email.trim() || !password.trim()) {
+      setError('Email and password are required');
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/v1/auth/token`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ apiKey }),
-        }
-      );
-
-      if (!res.ok) {
-        setError('Invalid API key. Check your credentials.');
-        return;
-      }
-
-      const json = await res.json();
-      const token = json?.data?.token;
-      if (!token) {
-        setError('Login response missing token');
-        return;
-      }
+      const { token } = await login(email.trim(), password);
       localStorage.setItem('gt_token', token);
-      router.push('/');
+      router.push('/mfa-verify');
     } catch {
-      setError('Cannot connect to backend. Starting in demo mode.');
-      // Allow demo mode without a token
-      setTimeout(() => router.push('/'), 1200);
+      setError('Invalid credentials. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -65,18 +46,13 @@ export default function LoginPage() {
 
       <div className="min-h-screen bg-gt-bg flex items-center justify-center px-4">
         <div className="w-full max-w-sm">
-          {/* Logo */}
           <div className="flex flex-col items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-gt-accent rounded-xl flex items-center justify-center relative overflow-hidden">
-              <div
-                className="absolute inset-0"
-                style={{ background: 'repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(0,0,0,.15) 3px,rgba(0,0,0,.15) 6px)' }}
+            <div className="w-24 h-24 rounded-2xl overflow-hidden border border-[rgba(255,255,255,0.12)] bg-gt-surface2">
+              <img
+                src="/ghosttrace_logo.png"
+                alt="GhostTrace logo"
+                className="w-full h-full object-cover"
               />
-              <svg width="24" height="24" viewBox="0 0 18 18" fill="none" style={{ position: 'relative', zIndex: 1 }}>
-                <path d="M9 1L2 5v8l7 4 7-4V5L9 1z" stroke="#0a0c0f" strokeWidth="1.5" fill="none" />
-                <circle cx="9" cy="9" r="2.5" fill="#0a0c0f" />
-                <path d="M9 4v2M9 12v2M4 9h2M12 9h2" stroke="#0a0c0f" strokeWidth="1.5" />
-              </svg>
             </div>
             <div className="text-center">
               <h1 className="text-xl font-extrabold font-display text-gt-text">GhostTrace AI</h1>
@@ -86,21 +62,35 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Form */}
           <div className="bg-gt-surface border border-[rgba(255,255,255,0.08)] rounded-xl p-6">
-            <h2 className="text-sm font-semibold text-gt-text mb-4">Sign in with API Key</h2>
+            <h2 className="text-sm font-semibold text-gt-text mb-4">Sign in with email</h2>
 
             <form onSubmit={handleLogin} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="api-key" className="text-[11px] font-mono text-gt-muted uppercase tracking-wider">
-                  API Key
+                <label htmlFor="email" className="text-[11px] font-mono text-gt-muted uppercase tracking-wider">
+                  Email
                 </label>
                 <input
-                  id="api-key"
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  className="bg-gt-surface2 border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2.5 text-[13px] font-mono text-gt-text placeholder:text-gt-dim focus:outline-none focus:border-gt-accent/50 transition-colors"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="password" className="text-[11px] font-mono text-gt-muted uppercase tracking-wider">
+                  Password
+                </label>
+                <input
+                  id="password"
                   type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="gt_••••••••••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
                   autoComplete="current-password"
                   className="bg-gt-surface2 border border-[rgba(255,255,255,0.1)] rounded-lg px-3 py-2.5 text-[13px] font-mono text-gt-text placeholder:text-gt-dim focus:outline-none focus:border-gt-accent/50 transition-colors"
                 />
@@ -117,22 +107,33 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full py-2.5 bg-gt-accent text-gt-bg font-mono font-bold text-sm rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-wait"
               >
-                {loading ? 'Connecting…' : 'Sign In'}
+                {loading ? 'Signing in…' : 'Sign In'}
               </button>
             </form>
 
-            <div className="flex items-center gap-3 my-4">
-              <div className="h-px flex-1 bg-[rgba(255,255,255,0.06)]" />
-              <span className="text-[10px] font-mono text-gt-dim">OR</span>
-              <div className="h-px flex-1 bg-[rgba(255,255,255,0.06)]" />
+            <div className="flex items-center justify-between gap-2 mt-4 text-[11px] font-mono text-gt-dim">
+              <button
+                type="button"
+                onClick={() => router.push('/forgot-password')}
+                className="text-gt-accent hover:underline"
+              >
+                Forgot password?
+              </button>
+              <button
+                type="button"
+                onClick={handleDemoMode}
+                className="text-gt-muted hover:text-gt-text"
+              >
+                Demo mode
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/admin-login')}
+                className="text-gt-muted hover:text-gt-danger transition-colors"
+              >
+                Admin login →
+              </button>
             </div>
-
-            <button
-              onClick={handleDemoMode}
-              className="w-full py-2.5 text-sm font-mono text-gt-muted border border-[rgba(255,255,255,0.08)] rounded-lg hover:text-gt-text hover:border-[rgba(255,255,255,0.16)] transition-colors"
-            >
-              Continue in Demo Mode
-            </button>
           </div>
 
           <p className="text-center text-[10px] font-mono text-gt-dim mt-4">

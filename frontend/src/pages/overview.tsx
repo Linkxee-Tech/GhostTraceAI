@@ -6,8 +6,11 @@ import { StatCard } from '@/components/shared/ui';
 import { TransactionFeed } from '@/components/transactions/TransactionFeed';
 import { AlertsPanel } from '@/components/alerts/AlertsPanel';
 import { ThreatGauge, RiskFactorBreakdown, GeoAnomalyPanel } from '@/components/dashboard/ThreatGauge';
+import AgentStatusCard from '@/components/agent/AgentStatusCard';
+import AgentInsightsCard from '@/components/agent/AgentInsightsCard';
+import RecentCasesPanel from '@/components/cases/RecentCasesPanel';
 import { AgentReasoningFeed, AgentActionsLog } from '@/components/agent/AgentLog';
-import { VolumeChart, ActionDistributionChart, FraudHeatmap } from '@/components/dashboard/Charts';
+import { VolumeChart, RiskDistributionChart, FraudHeatmap } from '@/components/dashboard/Charts';
 
 // Demo geo data — replaced by live API data in production
 const DEMO_GEO = [
@@ -29,27 +32,27 @@ export default function OverviewPage() {
       {/* ── Stat Cards ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
-          label="Transactions / min"
+          label="Total Transactions Today"
           value={(stats?.totalToday ?? liveTransactions.length).toLocaleString()}
-          delta="+12% last hour"
+          delta="vs yesterday"
           accent="green"
         />
         <StatCard
-          label="Fraud Detected"
-          value={stats?.fraudDetected ?? liveTransactions.filter((t) => t.isFraud).length}
-          delta={`↑ ${stats?.fraudDetected ?? 0} this session`}
-          accent="red"
-        />
-        <StatCard
-          label="Pending Review"
-          value={stats?.pendingReview ?? liveTransactions.filter((t) => t.status === 'under_review').length}
-          delta={`${activeAlerts.filter((a) => a.status === 'open').length} flagged by agent`}
+          label="Flagged Transactions"
+          value={liveTransactions.filter((t) => t.status === 'flagged' || t.status === 'under_review').length}
+          delta="vs yesterday"
           accent="amber"
         />
         <StatCard
-          label="Agent Decisions"
-          value={stats?.agentDecisions ?? agentActions.length}
-          delta={`Accuracy ${stats?.accuracy != null ? stats.accuracy : 98.2}%`}
+          label="High Risk Transactions"
+          value={liveTransactions.filter((t) => t.fraudScore !== null && t.fraudScore >= 80).length}
+          delta="vs yesterday"
+          accent="red"
+        />
+        <StatCard
+          label="Blocked Transactions"
+          value={liveTransactions.filter((t) => t.status === 'blocked').length}
+          delta="vs yesterday"
           accent="blue"
         />
       </div>
@@ -59,6 +62,7 @@ export default function OverviewPage() {
         <TransactionFeed />
         <div className="flex flex-col gap-4">
           <ThreatGauge />
+          <AgentStatusCard />
           <RiskFactorBreakdown factors={latestAlert?.riskFactors} />
         </div>
       </div>
@@ -75,10 +79,14 @@ export default function OverviewPage() {
       {/* ── Row 3: Charts ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <VolumeChart />
-        <ActionDistributionChart />
+        <RiskDistributionChart />
       </div>
 
       {/* ── Row 4: Heatmap + Agent Actions ── */}
+      {/* ── Recent Cases ── */}
+      <div>
+        <RecentCasesPanel />
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <FraudHeatmap />
         <AgentActionsLog />

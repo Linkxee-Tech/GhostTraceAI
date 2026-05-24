@@ -1,13 +1,11 @@
 # GhostTrace AI 🔍
 
 **Autonomous real-time fraud detection and response agent**
-Built for the [Google Cloud Rapid Agent Hackathon 2026](https://googlecloudagent.devpost.com/)
-
+Built for the Google Cloud Rapid Agent 2026
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-brightgreen)](https://nodejs.org)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org)
 
----
 
 ## What is GhostTrace AI?
 

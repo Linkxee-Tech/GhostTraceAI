@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type {
   Transaction, FraudAlert, AgentActionRecord,
-  DashboardStats, WsTransactionUpdate, WsAgentReasoning
+  DashboardStats, WsTransactionUpdate, WsAgentReasoning, UserAccount
 } from '../lib/types';
 
 interface ReasoningEntry {
@@ -47,6 +47,12 @@ interface GhostTraceStore {
   setSelectedTxnId: (id: string | null) => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  // Sidebar
+  sidebarOpen: boolean;
+  setSidebarOpen: (v: boolean) => void;
+  // Auth
+  currentUser: UserAccount | null;
+  setCurrentUser: (user: UserAccount | null) => void;
 }
 
 export const useStore = create<GhostTraceStore>((set) => ({
@@ -151,4 +157,9 @@ export const useStore = create<GhostTraceStore>((set) => ({
   setSelectedTxnId: (id) => set({ selectedTxnId: id }),
   activeTab: 'overview',
   setActiveTab: (tab) => set({ activeTab: tab }),
+  sidebarOpen: false,
+  setSidebarOpen: (v) => set({ sidebarOpen: v }),
+  // Auth
+  currentUser: null,
+  setCurrentUser: (user) => set({ currentUser: user }),
 }));

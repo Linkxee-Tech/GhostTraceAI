@@ -184,6 +184,62 @@ export function ActionDistributionChart() {
   );
 }
 
+// ── Risk Score Distribution Donut ────────────────────────────
+export function RiskDistributionChart() {
+  const { liveTransactions } = useStore();
+
+  const buckets = React.useMemo(() => {
+    const counts = { low: 0, medium: 0, high: 0, critical: 0 } as Record<string, number>;
+    liveTransactions.forEach((t) => {
+      const s = t.fraudScore ?? -1;
+      if (s < 0) return;
+      if (s < 25) counts.low++;
+      else if (s < 50) counts.medium++;
+      else if (s < 80) counts.high++;
+      else counts.critical++;
+    });
+    return counts;
+  }, [liveTransactions]);
+
+  const data = Object.entries(buckets).map(([name, value]) => ({ name, value }));
+  const total = data.reduce((s, d) => s + d.value, 0);
+
+  const COLORS: Record<string, string> = {
+    low: '#00e5a0',
+    medium: '#0095ff',
+    high: '#ffb43a',
+    critical: '#ff3b5c',
+  };
+
+  return (
+    <Panel>
+      <PanelHeader title="Risk Score Distribution" icon={<PieIcon size={15} />} />
+      <div className="px-4 pb-4 pt-2">
+        {total === 0 ? (
+          <div className="flex items-center justify-center h-40 text-gt-muted text-[11px] font-mono">No scored transactions yet</div>
+        ) : (
+          <div className="relative flex items-center justify-center" style={{ height: 180 }}>
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie data={data} cx="50%" cy="50%" innerRadius={50} outerRadius={75} dataKey="value" paddingAngle={3}>
+                  {data.map((entry) => (
+                    <Cell key={entry.name} fill={COLORS[entry.name]} />
+                  ))}
+                </Pie>
+                <Tooltip content={<DarkTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute text-center">
+              <div className="text-2xl font-extrabold font-display">{total}</div>
+              <div className="text-[11px] font-mono text-gt-muted">Transactions</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
 // ── 24h Fraud Activity Heatmap ────────────────────────────────
 export function FraudHeatmap() {
   const { liveTransactions } = useStore();

@@ -33,7 +33,7 @@ function TxRow({ txn, onClick }: TxRowProps) {
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onClick?.()}
       className="grid items-center gap-3 px-4 py-2.5 border-b border-[rgba(255,255,255,0.05)] hover:bg-gt-surface2 transition-colors cursor-pointer animate-slide-in"
-      style={{ gridTemplateColumns: '32px 1fr 90px 80px 80px' }}
+      style={{ gridTemplateColumns: '32px 1fr 90px 80px 80px 110px' }}
       aria-label={`Transaction ${txn.txnId}, ${formatAmount(txn.amount, txn.currency)}, ${txn.status}`}
     >
       {/* Status icon */}
@@ -69,6 +69,11 @@ function TxRow({ txn, onClick }: TxRowProps) {
           {txn.status.replace('_', ' ')}
         </Badge>
       </div>
+
+      {/* Time */}
+      <div className="flex justify-end text-[11px] font-mono text-gt-muted">
+        {new Date(txn.createdAt).toLocaleTimeString('en-GB', { hour12: false })}
+      </div>
     </div>
   );
 }
@@ -97,7 +102,7 @@ export function TransactionFeed() {
         {/* Column headers */}
         <div
           className="grid items-center gap-3 px-4 py-2 border-b border-[rgba(255,255,255,0.05)] text-[10px] font-mono text-gt-dim uppercase tracking-wider"
-          style={{ gridTemplateColumns: '32px 1fr 90px 80px 80px' }}
+          style={{ gridTemplateColumns: '32px 1fr 90px 80px 80px 110px' }}
           role="row"
         >
           <span />
@@ -105,6 +110,7 @@ export function TransactionFeed() {
           <span className="text-right" role="columnheader">Amount</span>
           <span className="text-right" role="columnheader">Risk</span>
           <span className="text-right" role="columnheader">Status</span>
+          <span className="text-right" role="columnheader">Time</span>
         </div>
 
         <div role="rowgroup">

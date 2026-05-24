@@ -112,6 +112,7 @@ const config = {
     jwtExpiresIn: process.env.JWT_EXPIRES_IN || '8h',
     apiKeyHash: process.env.API_KEY_HASH || '',
     encryptionKey: process.env.ENCRYPTION_KEY || '',
+    resetPasswordUrl: process.env.RESET_PASSWORD_URL || 'http://localhost:3000',
   },
 };
 

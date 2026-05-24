@@ -1,13 +1,9 @@
 'use strict';
 
 /*
- Transaction Generator
+ Transaction Generator (cleaned)
  - Inserts synthetic transactions into the `transactions` collection
- - Runs every 1-3 seconds (randomized) by default
- - Simulates occasional fraud patterns (large transfer, velocity, foreign login, new device, repeated failures)
-
- Usage:
-   NODE_ENV=development MONGODB_URI="mongodb://..." node scripts/tx-generator.js --rate=1500 --fraudRate=0.12
+ - Emits transactions at a configurable rate with realistic geo locations
 */
 
 const { v4: uuidv4 } = require('uuid');
@@ -24,7 +20,7 @@ const argv = yargs(hideBin(process.argv))
   .option('burstChance', { type: 'number', description: 'Chance of velocity burst', default: 0.05 })
   .argv;
 
-const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/ghosttrace';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/ghosttrace';
 const DB_NAME = process.env.MONGODB_DB_NAME || 'ghosttrace';
 
 const Transaction = require('../backend/src/db/schemas/Transaction');
@@ -40,7 +36,52 @@ const MERCHANTS = [
 const COUNTRIES = ['US', 'GB', 'NG', 'RU', 'UA', 'IN', 'CN', 'BR', 'DE', 'FR'];
 const CHANNELS = ['online', 'pos', 'atm', 'mobile', 'api', 'wire'];
 
-let running = true;
+const LOCATIONS = {
+  US: [
+    { city: 'New York', lat: 40.7128, lng: -74.0060 },
+    { city: 'San Francisco', lat: 37.7749, lng: -122.4194 },
+    { city: 'Chicago', lat: 41.8781, lng: -87.6298 },
+  ],
+  GB: [
+    { city: 'London', lat: 51.5074, lng: -0.1278 },
+    { city: 'Manchester', lat: 53.4808, lng: -2.2426 },
+  ],
+  NG: [
+    { city: 'Lagos', lat: 6.5244, lng: 3.3792 },
+    { city: 'Abuja', lat: 9.0765, lng: 7.3986 },
+  ],
+  RU: [
+    { city: 'Moscow', lat: 55.7558, lng: 37.6173 },
+    { city: 'Saint Petersburg', lat: 59.9311, lng: 30.3609 },
+  ],
+  UA: [
+    { city: 'Kyiv', lat: 50.4501, lng: 30.5234 },
+    { city: 'Lviv', lat: 49.8397, lng: 24.0297 },
+  ],
+  IN: [
+    { city: 'Mumbai', lat: 19.0760, lng: 72.8777 },
+    { city: 'Bengaluru', lat: 12.9716, lng: 77.5946 },
+  ],
+  CN: [
+    { city: 'Beijing', lat: 39.9042, lng: 116.4074 },
+    { city: 'Shanghai', lat: 31.2304, lng: 121.4737 },
+  ],
+  BR: [
+    { city: 'Sao Paulo', lat: -23.5505, lng: -46.6333 },
+    { city: 'Rio de Janeiro', lat: -22.9068, lng: -43.1729 },
+  ],
+  DE: [
+    { city: 'Berlin', lat: 52.5200, lng: 13.4050 },
+    { city: 'Munich', lat: 48.1351, lng: 11.5820 },
+  ],
+  FR: [
+    { city: 'Paris', lat: 48.8566, lng: 2.3522 },
+    { city: 'Lyon', lat: 45.7640, lng: 4.8357 },
+  ],
+};
+
+// Track last known location per account to compute realistic distances
+const lastLocationByAccount = {};
 
 function randInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -48,6 +89,30 @@ function randInt(min, max) {
 
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function deg2rad(deg) {
+  return deg * (Math.PI / 180);
+}
+
+function haversineKm(a, b) {
+  if (!a || !b) return 0;
+  const R = 6371; // km
+  const dLat = deg2rad(b.lat - a.lat);
+  const dLon = deg2rad(b.lng - a.lng);
+  const lat1 = deg2rad(a.lat);
+  const lat2 = deg2rad(b.lat);
+
+  const sinDlat = Math.sin(dLat / 2) * Math.sin(dLat / 2);
+  const sinDlon = Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const aHarv = sinDlat + Math.cos(lat1) * Math.cos(lat2) * sinDlon;
+  const c = 2 * Math.atan2(Math.sqrt(aHarv), Math.sqrt(1 - aHarv));
+  return R * c;
+}
+
+function getRandomLocationForCountry(country) {
+  const list = LOCATIONS[country] || LOCATIONS.US;
+  return pick(list);
 }
 
 function randomAmount() {
@@ -59,7 +124,14 @@ function randomAmount() {
 
 function makeBaseTransaction(overrides = {}) {
   const accountId = overrides.accountId || pick(ACCOUNTS);
-  const txn = {
+  const geoCountry = (overrides.geo && overrides.geo.country) || pick(COUNTRIES);
+  const geoLoc = getRandomLocationForCountry(geoCountry);
+
+  const last = lastLocationByAccount[accountId];
+  const distanceFromLastKm = last ? Math.round(haversineKm(last, geoLoc)) : (overrides.distanceFromLastKm || randInt(0, 50));
+  lastLocationByAccount[accountId] = geoLoc;
+
+  return {
     txnId: `TXN-${uuidv4().slice(0, 8).toUpperCase()}`,
     accountId,
     userId: `USR-${accountId.split('-')[1]}`,
@@ -70,7 +142,7 @@ function makeBaseTransaction(overrides = {}) {
     merchant: overrides.merchant || pick(MERCHANTS),
     device: overrides.device || {
       fingerprint: `DEV-${uuidv4().slice(0, 8)}`,
-      ipCountry: overrides.device?.ipCountry || geoLoc && geoLoc.country || geoCountry,
+      ipCountry: overrides.device?.ipCountry || geoCountry,
       isTor: false,
       isVpn: false,
       isKnownDevice: true,
@@ -85,92 +157,62 @@ function makeBaseTransaction(overrides = {}) {
     rawPayload: overrides.rawPayload || {},
     status: overrides.status || 'pending',
     tags: overrides.tags || [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    fraudScore: null,
+    fraudConfidence: null,
+    isFraud: null,
+    fraudReasons: [],
+    agentAction: null,
+    agentProcessed: false,
+    agentProcessedAt: null,
+    reviewRequired: false,
+    velocityCount1min: 0,
+  };
+}
 
-    // A small sample of realistic cities with coordinates for each country
-    const LOCATIONS = {
-      US: [
-        { city: 'New York', lat: 40.7128, lng: -74.0060 },
-        { city: 'San Francisco', lat: 37.7749, lng: -122.4194 },
-        { city: 'Chicago', lat: 41.8781, lng: -87.6298 },
-      ],
-      GB: [
-        { city: 'London', lat: 51.5074, lng: -0.1278 },
-        { city: 'Manchester', lat: 53.4808, lng: -2.2426 },
-      ],
-      NG: [
-        { city: 'Lagos', lat: 6.5244, lng: 3.3792 },
-        { city: 'Abuja', lat: 9.0765, lng: 7.3986 },
-      ],
-      RU: [
-        { city: 'Moscow', lat: 55.7558, lng: 37.6173 },
-        { city: 'Saint Petersburg', lat: 59.9311, lng: 30.3609 },
-      ],
-      UA: [
-        { city: 'Kyiv', lat: 50.4501, lng: 30.5234 },
-        { city: 'Lviv', lat: 49.8397, lng: 24.0297 },
-      ],
-      IN: [
-        { city: 'Mumbai', lat: 19.0760, lng: 72.8777 },
-        { city: 'Bengaluru', lat: 12.9716, lng: 77.5946 },
-      ],
-      CN: [
-        { city: 'Beijing', lat: 39.9042, lng: 116.4074 },
-        { city: 'Shanghai', lat: 31.2304, lng: 121.4737 },
-      ],
-      BR: [
-        { city: 'Sao Paulo', lat: -23.5505, lng: -46.6333 },
-        { city: 'Rio de Janeiro', lat: -22.9068, lng: -43.1729 },
-      ],
-      DE: [
-        { city: 'Berlin', lat: 52.5200, lng: 13.4050 },
-        { city: 'Munich', lat: 48.1351, lng: 11.5820 },
-      ],
-      FR: [
-        { city: 'Paris', lat: 48.8566, lng: 2.3522 },
-        { city: 'Lyon', lat: 45.7640, lng: 4.8357 },
-      ],
-    };
+async function insertTransaction(txn) {
+  try {
+    await Transaction.create(txn);
+    console.log('Inserted', txn.txnId, txn.accountId, txn.amount, txn.geo?.city || txn.geo?.country);
+  } catch (err) {
+    console.error('Insert failed', err && err.message);
+  }
+}
 
-    // Track last known location per account to compute realistic distances
-    const lastLocationByAccount = {};
+let running = true;
 
-    function deg2rad(deg) {
-      return deg * (Math.PI / 180);
-    }
+async function runGenerator() {
+  await mongoose.connect(MONGODB_URI, { dbName: DB_NAME });
+  console.log('Connected to', MONGODB_URI, 'DB:', DB_NAME);
 
-    function haversineKm(a, b) {
-      if (!a || !b) return 0;
-      const R = 6371; // km
-      const dLat = deg2rad(b.lat - a.lat);
-      const dLon = deg2rad(b.lng - a.lng);
-      const lat1 = deg2rad(a.lat);
-      const lat2 = deg2rad(b.lat);
+  while (running) {
+    const delay = Math.max(200, Math.round(argv.rate + (Math.random() - 0.5) * argv.jitter));
 
-      const sinDlat = Math.sin(dLat / 2) * Math.sin(dLat / 2);
-      const sinDlon = Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const aHarv = sinDlat + Math.cos(lat1) * Math.cos(lat2) * sinDlon;
-      const c = 2 * Math.atan2(Math.sqrt(aHarv), Math.sqrt(1 - aHarv));
-      return R * c;
-    }
-
-    function getRandomLocationForCountry(country) {
-      const list = LOCATIONS[country] || LOCATIONS.US;
-      return pick(list);
-    }
-          txn.geo.country = txn.device.ipCountry;
-          txn.tags.push('foreign_login_high_value');
+    let txn;
+    if (Math.random() < argv.fraudRate) {
+      // generate a fraud-like pattern
+      const pattern = randInt(1, 5);
+      switch (pattern) {
+        case 1: // high value foreign transfer
+          txn = makeBaseTransaction({ amount: parseFloat((2000 + Math.random() * 5000).toFixed(2)) });
+          txn.device.ipCountry = pick(COUNTRIES.filter((c) => c !== txn.geo.country));
+          txn.tags.push('foreign_high_value');
           break;
-        case 4: // new device + unusual location
-          txn = makeBaseTransaction({ amount: parseFloat((100 + Math.random() * 900).toFixed(2)), type: 'purchase' });
+        case 2: // velocity burst
+          txn = makeBaseTransaction({ amount: parseFloat((50 + Math.random() * 200).toFixed(2)) });
+          txn.tags.push('velocity_burst');
+          break;
+        case 3: // new device unusual location
+          txn = makeBaseTransaction({ amount: parseFloat((100 + Math.random() * 900).toFixed(2)) });
           txn.device = { fingerprint: `DEV-${uuidv4().slice(0, 8)}`, ipCountry: pick(COUNTRIES), isKnownDevice: false, isTor: false, isVpn: false };
           txn.geo.country = pick(COUNTRIES.filter((c) => c !== txn.device.ipCountry));
           txn.tags.push('new_device_unusual_location');
           break;
-        case 5: // repeated failed transactions
+        case 4: // repeated failed transactions (generate a small sequence)
           {
             const acc = pick(ACCOUNTS);
             const count = randInt(3, 6);
-            console.log('SIMULATE repeated failures for', acc, 'count=', count);
             for (let i = 0; i < count - 1; i++) {
               const t = makeBaseTransaction({ accountId: acc, amount: Math.random() * 50 + 1 });
               t.status = 'failed';
@@ -179,7 +221,6 @@ function makeBaseTransaction(overrides = {}) {
               await insertTransaction(t);
               await new Promise((r) => setTimeout(r, randInt(200, 600)));
             }
-            // final successful high-value attempt
             const final = makeBaseTransaction({ accountId: acc, amount: parseFloat((1000 + Math.random() * 5000).toFixed(2)) });
             final.tags.push('failed_then_success');
             await insertTransaction(final);

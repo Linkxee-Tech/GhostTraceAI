@@ -232,12 +232,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           {activeTab === 'about' && (
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-4 pb-4 border-b border-[rgba(255,255,255,0.06)]">
-                <div className="w-12 h-12 bg-gt-accent rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg width="24" height="24" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                    <path d="M9 1L2 5v8l7 4 7-4V5L9 1z" stroke="#0a0c0f" strokeWidth="1.5" fill="none"/>
-                    <circle cx="9" cy="9" r="2.5" fill="#0a0c0f"/>
-                    <path d="M9 4v2M9 12v2M4 9h2M12 9h2" stroke="#0a0c0f" strokeWidth="1.5"/>
-                  </svg>
+                <div className="w-12 h-12 rounded-xl overflow-hidden border border-[rgba(255,255,255,0.12)] bg-gt-surface2 flex-shrink-0">
+                  <img
+                    src="/ghosttrace_logo.png"
+                    alt="GhostTrace logo"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div>
                   <div className="text-[15px] font-extrabold font-display text-gt-text">GhostTrace AI</div>

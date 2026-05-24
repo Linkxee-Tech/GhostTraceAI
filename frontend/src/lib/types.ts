@@ -129,9 +129,105 @@ export interface DashboardStats {
 }
 
 // ── API Response wrapper ──────────────────────────────────────
+export interface UserSession {
+  sessionId: string;
+  userAgent: string;
+  ipAddress: string;
+  deviceFingerprint: string;
+  createdAt: string;
+  lastSeenAt: string;
+  isActive: boolean;
+}
+
+export interface UserAccount {
+  userId: string;
+  email: string;
+  name: string;
+  role: 'admin' | 'analyst' | 'auditor' | 'viewer';
+  status: 'active' | 'disabled';
+  lastLoginAt?: string;
+  lastLoginIp?: string;
+  sessions?: UserSession[];
+  sessionCount?: number;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data: T;
   pagination?: { total: number; page: number; limit: number; pages: number; };
   error?: string;
+}
+
+// ── Case Management ───────────────────────────────────────────
+export type CaseStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed';
+export type CasePriority = 'Low' | 'Medium' | 'High' | 'Critical';
+
+export interface CaseNote {
+  noteId: string;
+  authorEmail: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface FraudCase {
+  _id: string;
+  caseId: string;
+  title: string;
+  status: CaseStatus;
+  priority: CasePriority;
+  assignedTo: string;
+  relatedTxnIds: string[];
+  relatedAlertIds: string[];
+  notes: CaseNote[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── Watchlist ─────────────────────────────────────────────────
+export type WatchlistEntityType = 'IP Address' | 'Account' | 'Device Hash' | 'Email';
+
+export interface WatchlistEntity {
+  _id: string;
+  entityId: string;
+  type: WatchlistEntityType;
+  value: string;
+  reason: string;
+  addedBy: string;
+  createdAt: string;
+}
+
+// ── Audit Log ─────────────────────────────────────────────────
+export type AuditLogStatus = 'Success' | 'Failed' | 'Warning';
+
+export interface AuditLog {
+  _id: string;
+  logId: string;
+  timestamp: string;
+  user: string;
+  action: string;
+  resource: string;
+  status: AuditLogStatus;
+  ipAddress?: string;
+  metadata?: Record<string, unknown>;
+}
+
+// ── Rule Config ───────────────────────────────────────────────
+export interface RuleConfig {
+  _id: string;
+  ruleId: string;
+  name: string;
+  description: string;
+  category: string;
+  status: 'Active' | 'Inactive';
+  weight: 'Low' | 'Medium' | 'High' | 'Critical';
+}
+
+// ── General Settings ──────────────────────────────────────────
+export interface GeneralSettings {
+  orgName: string;
+  supportEmail: string;
+  autoBlockThreshold: number;
+  autoFlagThreshold: number;
+  mfaRequired: boolean;
 }

@@ -14,6 +14,7 @@ const { transport } = require('./mcp/mcpServer');
 
 // Route modules
 const authRoutes        = require('./api/routes/auth');
+const userRoutes        = require('./api/routes/users');
 const transactionRoutes = require('./api/routes/transactions');
 const alertRoutes       = require('./api/routes/alerts');
 const agentRoutes       = require('./api/routes/agent');
@@ -69,10 +70,15 @@ function createApp() {
 
   // ── Routes ───────────────────────────────────────────────────
   app.use('/api/v1/auth',         authRoutes);
+  app.use('/api/v1/users',        userRoutes);
   app.use('/api/v1/transactions', transactionRoutes);
   app.use('/api/v1/alerts',       alertRoutes);
   app.use('/api/v1/agent',        agentRoutes);
-  app.use('/api/v1/audit',        auditRoutes);
+  app.use('/api/v1/audit-logs',   auditRoutes); // Frontend expects /audit-logs
+  app.use('/api/v1/cases',        require('./api/routes/cases'));
+  app.use('/api/v1/watchlist',    require('./api/routes/watchlist'));
+  app.use('/api/v1/rules',        require('./api/routes/rules'));
+  app.use('/api/v1/settings',     require('./api/routes/settings'));
   app.use('/api/v1',              statsRoutes);   // /health and /stats
 
   // Root redirect

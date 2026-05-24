@@ -105,6 +105,45 @@ function TransactionDetailDrawer({ txn, onClose }: { txn: Transaction; onClose: 
           ))}
         </div>
 
+        {/* Transaction Timeline */}
+        <div>
+          <p className="text-[11px] font-mono text-gt-muted mb-3 uppercase tracking-wider">
+            Transaction Timeline
+          </p>
+          <div className="flex flex-col gap-3 relative before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-[2px] before:bg-[rgba(255,255,255,0.05)]">
+            <div className="flex gap-4 relative z-10">
+              <div className="w-4 h-4 rounded-full bg-gt-surface border-[3px] border-gt-blue mt-0.5 shadow-[0_0_0_4px_#0a0c0f]" />
+              <div>
+                <p className="text-[12px] font-bold text-gt-text">Initiated</p>
+                <p className="text-[10px] font-mono text-gt-muted">API Gateway received payload</p>
+              </div>
+            </div>
+            <div className="flex gap-4 relative z-10">
+              <div className="w-4 h-4 rounded-full bg-gt-surface border-[3px] border-gt-accent mt-0.5 shadow-[0_0_0_4px_#0a0c0f]" />
+              <div>
+                <p className="text-[12px] font-bold text-gt-text">Rule Engine</p>
+                <p className="text-[10px] font-mono text-gt-muted">Passed basic velocity checks</p>
+              </div>
+            </div>
+            {txn.fraudScore !== null && (
+              <div className="flex gap-4 relative z-10">
+                <div className="w-4 h-4 rounded-full bg-gt-surface border-[3px] border-gt-warn mt-0.5 shadow-[0_0_0_4px_#0a0c0f]" />
+                <div>
+                  <p className="text-[12px] font-bold text-gt-text">AI Agent Analysis</p>
+                  <p className="text-[10px] font-mono text-gt-muted">Scored {txn.fraudScore}/100</p>
+                </div>
+              </div>
+            )}
+            <div className="flex gap-4 relative z-10">
+              <div className={`w-4 h-4 rounded-full bg-gt-surface border-[3px] mt-0.5 shadow-[0_0_0_4px_#0a0c0f] ${txn.status === 'blocked' ? 'border-gt-danger' : 'border-gt-accent'}`} />
+              <div>
+                <p className={`text-[12px] font-bold ${txn.status === 'blocked' ? 'text-gt-danger' : 'text-gt-accent'}`}>{txn.status.toUpperCase()}</p>
+                <p className="text-[10px] font-mono text-gt-muted">Final enforcement action</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Security Flags */}
         {(txn.device?.isTor || txn.device?.isVpn || txn.geo?.isAnomaly) && (
           <div className="flex flex-col gap-1.5">
