@@ -1,6 +1,5 @@
 'use strict';
 
-const mongoose = require('mongoose');
 const { v4: uuidv4 } = require('uuid');
 const Transaction = require('./schemas/Transaction');
 const { AuditLog } = require('./schemas/Fraud');
@@ -167,7 +166,7 @@ async function reconnect() {
   await new Promise((r) => setTimeout(r, delay));
 
   if (streamInstance) {
-    try { await streamInstance.close(); } catch (_) {}
+    try { await streamInstance.close(); } catch (_err) { /* ignore close errors during reconnect */ }
   }
 
   await openStream();
@@ -186,4 +185,12 @@ function isActive() {
   return isRunning && streamInstance !== null;
 }
 
-module.exports = { startChangeStream, stopChangeStream, isActive };
+function getStatus() {
+  return {
+    active: isActive(),
+    reconnectAttempts,
+    maxReconnectAttempts: MAX_RECONNECT_ATTEMPTS,
+  };
+}
+
+module.exports = { startChangeStream, stopChangeStream, isActive, getStatus };

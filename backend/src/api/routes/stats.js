@@ -3,7 +3,8 @@
 const express = require('express');
 const { getDashboardStats } = require('../../services/statsService');
 const { healthCheck } = require('../../db/connection');
-const { isActive } = require('../../db/changeStream');
+const { isActive, getStatus } = require('../../db/changeStream');
+const { getConnectionCount } = require('../../services/websocketService');
 const { authenticate } = require('../middleware/auth');
 const logger = require('../../utils/logger').forModule('statsRoutes');
 
@@ -43,6 +44,31 @@ router.get('/stats', authenticate, async (req, res, next) => {
     res.json({ success: true, data: stats });
   } catch (err) {
     next(err);
+  }
+});
+
+/**
+ * GET /api/v1/health/telemetry
+ * Authenticated runtime telemetry for production monitoring dashboards.
+ */
+router.get('/health/telemetry', authenticate, async (req, res) => {
+  try {
+    const db = await healthCheck();
+    const socketConnections = await getConnectionCount();
+    const changeStream = getStatus();
+    res.json({
+      success: true,
+      data: {
+        timestamp: new Date().toISOString(),
+        uptimeSec: Math.floor(process.uptime()),
+        database: db,
+        changeStream,
+        socketConnections,
+        nodeEnv: process.env.NODE_ENV || 'development',
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

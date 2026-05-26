@@ -144,6 +144,7 @@ export interface UserAccount {
   email: string;
   name: string;
   role: 'admin' | 'analyst' | 'auditor' | 'viewer';
+  accountType?: 'admin' | 'demo' | 'user' | 'analyst' | 'auditor' | 'viewer';
   status: 'active' | 'disabled';
   lastLoginAt?: string;
   lastLoginIp?: string;
@@ -230,4 +231,23 @@ export interface GeneralSettings {
   autoBlockThreshold: number;
   autoFlagThreshold: number;
   mfaRequired: boolean;
+  webhookUrl?: string;
+  apiKeys?: Array<{
+    apiKeyId: string;
+    name: string;
+    keyPrefix: string;
+    keyLast4: string;
+    status: 'active' | 'revoked';
+    createdBy: string;
+    createdAt: string;
+    lastUsedAt?: string;
+  }>;
+  webhookTestLogs?: Array<{
+    url: string;
+    statusCode?: number;
+    success: boolean;
+    error?: string;
+    testedAt: string;
+    testedBy: string;
+  }>;
 }

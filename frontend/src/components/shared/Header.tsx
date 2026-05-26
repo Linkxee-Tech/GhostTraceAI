@@ -22,7 +22,7 @@ const NAV_TABS = [
 ] as const;
 
 const SEARCHABLE = [
-  { label: 'Dashboard Overview', path: '/', tab: 'overview' },
+  { label: 'Dashboard Overview', path: '/dashboard', tab: 'overview' },
   { label: 'Transactions', path: '/transactions', tab: 'transactions' },
   { label: 'Alerts', path: '/alerts', tab: 'alerts' },
   { label: 'AI Agent', path: '/agent', tab: 'agent' },
@@ -73,7 +73,11 @@ export default function Header() {
 
   const handleSearchSelect = (item: typeof SEARCHABLE[0]) => {
     setActiveTab(item.tab);
-    router.push(item.path);
+    if (item.tab === 'overview' && currentUser) {
+      router.push(getDashboardPath(resolveDashboardType(currentUser)));
+    } else {
+      router.push(item.path);
+    }
     setSearchOpen(false);
     setSearchQuery('');
   };
@@ -236,7 +240,11 @@ export default function Header() {
                 aria-controls={`panel-${tab.id}`}
                 onClick={() => {
                   setActiveTab(tab.id);
-                  router.push(tab.id === 'overview' ? '/' : `/${tab.id}`);
+                  if (tab.id === 'overview' && currentUser) {
+                    router.push(getDashboardPath(resolveDashboardType(currentUser)));
+                  } else {
+                    router.push(tab.id === 'overview' ? '/' : `/${tab.id}`);
+                  }
                 }}
                 className={cn(
                   'flex items-center gap-2 px-4 py-3 text-[13px] font-semibold transition-colors border-b-2 whitespace-nowrap flex-shrink-0',

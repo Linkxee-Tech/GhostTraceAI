@@ -1,19 +1,13 @@
 import axios, { AxiosError } from 'axios';
-import { getToken, clearSession } from './authSession';
+import { getApiHost, getToken, clearSession } from './authSession';
 import type {
   ApiResponse, Transaction, FraudAlert,
   AgentActionRecord, AnalystReview, DashboardStats,
   UserAccount,
 } from './types';
 
-function resolveApiUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (configured) return configured.replace(/\/+$/, '');
-  if (typeof window !== 'undefined') return window.location.origin;
-  return 'http://localhost:3001';
-}
 
-const API_URL = resolveApiUrl();
+const API_URL = getApiHost();
 
 export const apiClient = axios.create({
   baseURL: `${API_URL}/api/v1`,
@@ -252,7 +246,16 @@ export const generateApiKey = async (name: string): Promise<{ key: string }> => 
   return data.data;
 };
 
+export const revokeApiKey = async (apiKeyId: string): Promise<void> => {
+  await apiClient.delete(`/settings/api-keys/${apiKeyId}`);
+};
+
 export const testWebhook = async (url: string): Promise<{ success: boolean; statusCode: number }> => {
   const { data } = await apiClient.post<ApiResponse<{ success: boolean; statusCode: number }>>('/settings/webhooks/test', { url });
+  return data.data;
+};
+
+export const fetchWebhookTestLogs = async (): Promise<GeneralSettings['webhookTestLogs']> => {
+  const { data } = await apiClient.get<ApiResponse<NonNullable<GeneralSettings['webhookTestLogs']>>>('/settings/webhooks/tests');
   return data.data;
 };

@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const mongoose = require('mongoose');
 const { body, query, param } = require('express-validator');
 const { v4: uuidv4 } = require('uuid');
 const Transaction = require('../../db/schemas/Transaction');
@@ -13,6 +14,12 @@ const router = express.Router();
 
 // All transaction routes require auth
 router.use(authenticate);
+
+function isBypassWithoutDb() {
+  return process.env.BYPASS_AUTH === 'true'
+    && process.env.NODE_ENV !== 'production'
+    && mongoose.connection.readyState !== 1;
+}
 
 /**
  * GET /api/v1/transactions
@@ -30,6 +37,14 @@ router.get(
   validateRequest,
   async (req, res, next) => {
     try {
+      if (isBypassWithoutDb()) {
+        return res.json({
+          success: true,
+          data: [],
+          pagination: { total: 0, page: req.query.page || 1, limit: req.query.limit || 20, pages: 1 },
+        });
+      }
+
       const page      = req.query.page  || 1;
       const limit     = req.query.limit || 20;
       const skip      = (page - 1) * limit;
@@ -76,6 +91,10 @@ router.get(
   validateRequest,
   async (req, res, next) => {
     try {
+      if (isBypassWithoutDb()) {
+        return res.status(404).json({ success: false, error: 'Transaction not found' });
+      }
+
       const txn = await Transaction.findOne({ txnId: req.params.txnId }).lean();
       if (!txn) return res.status(404).json({ success: false, error: 'Transaction not found' });
 
@@ -106,6 +125,11 @@ router.post(
   validateRequest,
   async (req, res, next) => {
     try {
+      if (isBypassWithoutDb()) {
+        const txnId = `TXN-${uuidv4().slice(0, 8).toUpperCase()}`;
+        return res.status(201).json({ success: true, data: { txnId, status: 'pending' } });
+      }
+
       const txnId = `TXN-${uuidv4().slice(0, 8).toUpperCase()}`;
 
       const txn = await Transaction.create({

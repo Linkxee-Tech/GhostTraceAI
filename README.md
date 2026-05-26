@@ -147,8 +147,20 @@ cp backend/.env.example backend/.env
 # Frontend
 cp frontend/.env.local.example frontend/.env.local
 # NEXT_PUBLIC_API_URL=http://localhost:3001
+# NEXT_PUBLIC_WS_URL=http://localhost:3001
 # Optional: set EXTERNAL_ENFORCEMENT_URL and EXTERNAL_ENFORCEMENT_SECRET if you want live action enforcement via webhook
 ```
+
+### Environment Parity (Local vs Production)
+
+To avoid "works on Vercel but fails locally" auth issues, keep these aligned:
+
+- Frontend local: `NEXT_PUBLIC_API_URL=http://localhost:3001`
+- Frontend Vercel: `NEXT_PUBLIC_API_URL=https://<your-backend-domain>`
+- Backend local: `CORS_ORIGINS=http://localhost:3000`
+- Backend production: `CORS_ORIGINS=https://ghosttraceai.vercel.app`
+- Optional preview domains: `ALLOW_VERCEL_PREVIEW_ORIGINS=true`
+- Keep `BYPASS_AUTH=false` outside local-only debugging.
 
 ### 3. Start both services
 

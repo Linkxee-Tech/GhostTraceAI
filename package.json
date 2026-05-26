@@ -17,7 +17,7 @@
     "test:unit": "npm run test:unit --workspace=backend",
     "test:integration": "npm run test:integration --workspace=backend",
     "test:simulation": "npm run test:simulation --workspace=backend",
-    "lint": "eslint . --ext .js,.ts,.jsx,.tsx",
+    "lint": "npm run lint --workspace=backend && npm run lint --workspace=frontend",
     "seed": "node scripts/seed-transactions.js",
     "simulate": "node scripts/fraud-simulator.js",
     "txgen": "node scripts/tx-generator.js"

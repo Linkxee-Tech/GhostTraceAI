@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import useSWR from 'swr';
 import { Panel, PanelHeader, Badge, EmptyState, Spinner } from '@/components/shared/ui';
-import { fetchUsers, createUserAccount, revokeUserSession } from '@/lib/api';
+import { fetchUsers, createUserAccount, revokeUserSession, updateUserAccount } from '@/lib/api';
 import type { UserAccount } from '@/lib/types';
 import { formatRelativeTime } from '@/lib/utils';
 import { UserPlus, KeyRound, XCircle } from 'lucide-react';
@@ -34,7 +34,7 @@ export default function UsersPage() {
       toast.success('User account created');
       await mutate();
     } catch (err) {
-      toast.error('Failed to create user');
+      toast.error((err as any)?.response?.data?.error || 'Failed to create user');
     } finally {
       setCreating(false);
     }
@@ -47,6 +47,27 @@ export default function UsersPage() {
       await mutate();
     } catch {
       toast.error('Failed to revoke session');
+    }
+  };
+
+  const handleRoleChange = async (userId: string, nextRole: UserAccount['role']) => {
+    try {
+      await updateUserAccount(userId, { role: nextRole });
+      toast.success('User role updated');
+      await mutate();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to update role');
+    }
+  };
+
+  const handleStatusToggle = async (userId: string, status: UserAccount['status']) => {
+    try {
+      const next = status === 'active' ? 'disabled' : 'active';
+      await updateUserAccount(userId, { status: next });
+      toast.success(`User ${next}`);
+      await mutate();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Failed to update status');
     }
   };
 
@@ -149,7 +170,18 @@ export default function UsersPage() {
                 {users.map((user) => (
                   <tr key={user.userId} className="border-b border-[rgba(255,255,255,0.05)] hover:bg-gt-surface2 transition-colors">
                     <td className="px-4 py-3 text-gt-text">{user.email}</td>
-                    <td className="px-4 py-3">{user.role}</td>
+                    <td className="px-4 py-3">
+                      <select
+                        value={user.role}
+                        onChange={(e) => handleRoleChange(user.userId, e.target.value as UserAccount['role'])}
+                        className="bg-gt-surface2 border border-[rgba(255,255,255,0.1)] rounded px-2 py-1 text-xs text-gt-text"
+                      >
+                        <option value="admin">admin</option>
+                        <option value="analyst">analyst</option>
+                        <option value="auditor">auditor</option>
+                        <option value="viewer">viewer</option>
+                      </select>
+                    </td>
                     <td className="px-4 py-3">
                       <Badge className={user.status === 'active' ? 'bg-gt-accent/10 text-gt-accent border-gt-accent/20' : 'bg-gt-warn/10 text-gt-warn border-gt-warn/20'}>
                         {user.status}
@@ -157,7 +189,7 @@ export default function UsersPage() {
                     </td>
                     <td className="px-4 py-3">{user.lastLoginAt ? formatRelativeTime(user.lastLoginAt) : 'Never'}</td>
                     <td className="px-4 py-3">{user.sessionCount ?? 0}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 flex items-center gap-3">
                       {user.sessions?.map((session) => (
                         session.isActive ? (
                           <button
@@ -169,6 +201,12 @@ export default function UsersPage() {
                           </button>
                         ) : null
                       ))}
+                      <button
+                        onClick={() => handleStatusToggle(user.userId, user.status)}
+                        className="text-[11px] font-mono text-gt-warn hover:underline"
+                      >
+                        {user.status === 'active' ? 'Disable user' : 'Enable user'}
+                      </button>
                     </td>
                   </tr>
                 ))}

@@ -15,6 +15,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const {
     wsConnected, setWsConnected, setStats, setActiveAlerts,
     setActiveTab, currentUser, setCurrentUser,
+    setSidebarOpen,
   } = useStore();
 
   const [authChecked, setAuthChecked] = useState(false);
@@ -61,6 +62,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.innerWidth >= 1024) {
+      setSidebarOpen(true);
+    }
+  }, [setSidebarOpen]);
 
   useWebSocket(
     {
@@ -130,7 +138,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <h1 className="text-2xl font-display font-bold text-gt-danger mb-2">Access Denied</h1>
         <p className="text-sm text-gt-muted mb-6">You do not have permission to view this page.</p>
         <button
-          onClick={() => router.replace(getDashboardPath(resolveDashboardType(currentUser)))}
+          onClick={() => {
+            if (currentUser) {
+              router.replace(getDashboardPath(resolveDashboardType(currentUser)));
+            } else {
+              router.replace('/');
+            }
+          }}
           className="px-4 py-2 bg-gt-surface2 border border-[rgba(255,255,255,0.1)] text-gt-text rounded text-sm hover:bg-[rgba(255,255,255,0.05)] transition-colors"
         >
           Return to Dashboard

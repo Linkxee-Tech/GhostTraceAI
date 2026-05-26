@@ -7,7 +7,6 @@ const { executeAction } = require('./actionExecutor');
 const { AuditLog } = require('../db/schemas/Fraud');
 const Transaction = require('../db/schemas/Transaction');
 const vectorService = require('../services/vectorService');
-const config = require('../config');
 const logger = require('../utils/logger').forModule('fraudAgent');
 
 // Track in-flight transactions to prevent concurrent double-processing
@@ -46,8 +45,23 @@ async function processTransaction(txn, broadcastFn) {
 
   inFlight.add(txn.txnId);
   const pipelineStart = Date.now();
+  let lockAcquired = false;
 
   try {
+    // Attempt to acquire a DB-level lock to prevent concurrent processing
+    const lock = await Transaction.findOneAndUpdate(
+      { txnId: txn.txnId, agentLock: { $ne: true } },
+      { $set: { agentLock: true } },
+      { new: true }
+    ).lean();
+
+    if (!lock) {
+      logger.debug({ txnId: txn.txnId }, 'Another worker holds lock — skipping processing');
+      return;
+    }
+
+    lockAcquired = true;
+
     logger.info({ txnId: txn.txnId, accountId: txn.accountId, amount: txn.amount },
       '── Agent pipeline started ──');
 
@@ -200,7 +214,7 @@ async function processTransaction(txn, broadcastFn) {
     await auditEvent('stream_error', txn.txnId, txn.accountId, {
       error: err.message,
       latencyMs: Date.now() - pipelineStart,
-    }, false);
+    }, false).catch(() => {});
 
     // Safety net: mark as review_required if pipeline fails
     await Transaction.findOneAndUpdate(
@@ -224,6 +238,15 @@ async function processTransaction(txn, broadcastFn) {
     return { action: 'request_review', error: err.message };
 
   } finally {
+    // release DB lock if held
+    try {
+      if (lockAcquired) {
+        await Transaction.findOneAndUpdate({ txnId: txn.txnId }, { $set: { agentLock: false } }).catch(() => {});
+      }
+    } catch (e) {
+      logger.warn({ err: e }, 'Failed to release agentLock');
+    }
+
     inFlight.delete(txn.txnId);
   }
 }

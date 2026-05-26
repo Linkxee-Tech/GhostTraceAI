@@ -40,3 +40,36 @@ export function persistSession(token: string, user?: Pick<UserAccount, 'role' | 
   }
 }
 
+export function getApiHost(): string {
+  if (typeof window === 'undefined') {
+      const envHost = process.env.NEXT_PUBLIC_API_URL?.trim();
+      if (envHost) return envHost.replace(/\/+$/g, '');
+      return 'http://localhost:3001';
+  }
+
+    const envHost = process.env.NEXT_PUBLIC_API_URL?.trim();
+    const configured = envHost ? envHost.replace(/\/+$/g, '') : undefined;
+  if (configured) return configured;
+
+  const origin = window.location.origin;
+  if (origin.includes('localhost:3000')) {
+    return 'http://localhost:3001';
+  }
+
+  return origin.replace(/\/+$/g, '');
+}
+
+export function getWebSocketUrl(): string {
+  const envWs = process.env.NEXT_PUBLIC_WS_URL?.trim();
+  const configured = envWs ? envWs.replace(/\/+$/g, '') : undefined;
+  if (configured) return configured;
+  if (typeof window === 'undefined') return 'http://localhost:3001';
+
+  const protocol = window.location.protocol;
+  const host = window.location.hostname === 'localhost' && window.location.port === '3000'
+    ? 'localhost:3001'
+    : window.location.host;
+
+  return `${protocol}//${host}`;
+}
+

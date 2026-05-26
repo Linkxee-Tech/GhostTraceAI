@@ -24,7 +24,10 @@ export default function Sidebar() {
   const { activeTab, setActiveTab, sidebarOpen, setSidebarOpen, currentUser } = useStore();
 
   const getPath = (id: string) => {
-    if (id === 'overview') return '/';
+    if (id === 'overview') {
+      if (currentUser) return getDashboardPath(resolveDashboardType(currentUser));
+      return '/';
+    }
     if (id === 'audit-logs') return '/audit-logs';
     return `/${id}`;
   };

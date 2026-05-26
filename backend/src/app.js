@@ -5,6 +5,7 @@ const helmet     = require('helmet');
 const cors       = require('cors');
 const morgan     = require('morgan');
 const compression = require('compression');
+const mongoose   = require('mongoose');
 
 const config     = require('./config');
 const logger     = require('./utils/logger').forModule('app');
@@ -20,6 +21,10 @@ const alertRoutes       = require('./api/routes/alerts');
 const agentRoutes       = require('./api/routes/agent');
 const statsRoutes       = require('./api/routes/stats');
 const auditRoutes       = require('./api/routes/audit');
+
+// Avoid 10s+ hidden hangs when MongoDB is unavailable.
+// Routes should fail fast so the frontend can show explicit fallback states.
+mongoose.set('bufferCommands', false);
 
 function createApp() {
   const app = express();
