@@ -1,11 +1,19 @@
 import axios, { AxiosError } from 'axios';
+import { getToken, clearSession } from './authSession';
 import type {
   ApiResponse, Transaction, FraudAlert,
   AgentActionRecord, AnalystReview, DashboardStats,
   UserAccount,
 } from './types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+function resolveApiUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (configured) return configured.replace(/\/+$/, '');
+  if (typeof window !== 'undefined') return window.location.origin;
+  return 'http://localhost:3001';
+}
+
+const API_URL = resolveApiUrl();
 
 export const apiClient = axios.create({
   baseURL: `${API_URL}/api/v1`,
@@ -15,10 +23,8 @@ export const apiClient = axios.create({
 
 // Attach stored JWT on every request
 apiClient.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('gt_token');
-    if (token) config.headers.Authorization = `Bearer ${token}`;
-  }
+  const token = getToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
@@ -27,7 +33,7 @@ apiClient.interceptors.response.use(
   (res) => res,
   (err: AxiosError<{ error: string }>) => {
     if (err.response?.status === 401 && typeof window !== 'undefined') {
-      localStorage.removeItem('gt_token');
+      clearSession();
       window.location.href = '/login';
     }
     return Promise.reject(err);

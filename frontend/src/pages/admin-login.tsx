@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { login } from '@/lib/api';
+import { persistSession } from '@/lib/authSession';
 import { ShieldCheck, Eye, EyeOff } from 'lucide-react';
 
 export default function AdminLoginPage() {
@@ -27,8 +28,7 @@ export default function AdminLoginPage() {
       if (user.role !== 'admin') {
         throw new Error('Not an admin');
       }
-      localStorage.setItem('gt_token', token);
-      localStorage.setItem('gt_role', 'admin');
+      persistSession(token, user);
       router.push('/mfa-verify');
     } catch {
       setError('Invalid admin credentials. Access denied.');
@@ -51,8 +51,12 @@ export default function AdminLoginPage() {
         <div className="relative w-full max-w-sm">
           {/* Header */}
           <div className="flex flex-col items-center gap-3 mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gt-danger/10 border border-gt-danger/30 flex items-center justify-center">
-              <ShieldCheck size={32} className="text-gt-danger" />
+             <div className="w-24 h-24 rounded-2xl overflow-hidden border border-[rgba(255,255,255,0.12)] bg-gt-surface2">
+              <img
+                src="/ghosttrace_logo.png"
+                alt="GhostTrace logo"
+                className="w-full h-full object-cover"
+              />
             </div>
             <div className="text-center">
               <h1 className="text-xl font-extrabold font-display text-gt-text">Admin Portal</h1>

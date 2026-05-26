@@ -4,6 +4,9 @@ import React, { useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { login } from '@/lib/api';
+import { persistSession } from '@/lib/authSession';
+
+const DEMO_LOGIN_ENABLED = process.env.NEXT_PUBLIC_AUTH_DEMO_ENABLED === 'true' || process.env.NODE_ENV !== 'production';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,8 +26,8 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const { token } = await login(email.trim(), password);
-      localStorage.setItem('gt_token', token);
+      const { token, user } = await login(email.trim(), password);
+      persistSession(token, user);
       router.push('/mfa-verify');
     } catch {
       setError('Invalid credentials. Please try again.');
@@ -33,9 +36,24 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoMode = () => {
-    localStorage.removeItem('gt_token');
-    router.push('/');
+  const handleDemoMode = async () => {
+    if (!DEMO_LOGIN_ENABLED) {
+      setError('Demo login is disabled in production.');
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+
+    try {
+      const { token, user } = await login('demo@ghosttrace.ai', 'demo-password');
+      persistSession(token, user);
+      router.push('/mfa-verify');
+    } catch {
+      setError('Demo login is currently unavailable. Please sign in normally.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -137,7 +155,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-center text-[10px] font-mono text-gt-dim mt-4">
-            Google Cloud Rapid Agent Hackathon 2026
+            Google Cloud Rapid Agent 2026
           </p>
         </div>
       </div>

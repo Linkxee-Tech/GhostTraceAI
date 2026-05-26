@@ -7,6 +7,7 @@ const REQUIRED_VARS = [
   'MONGODB_URI',
   'MONGODB_DB_NAME',
   'GEMINI_MODEL',
+  'GOOGLE_API_KEY',
   'JWT_SECRET',
   'MCP_AUTH_SECRET',
 ];
@@ -24,6 +25,11 @@ function validateConfig() {
 // Only validate in non-test environments
 if (process.env.NODE_ENV !== 'test') {
   validateConfig();
+
+  // Security guard: do not allow bypassing auth in production
+  if (process.env.BYPASS_AUTH === 'true' && process.env.NODE_ENV === 'production') {
+    throw new Error('BYPASS_AUTH cannot be enabled in production. Set BYPASS_AUTH=false and configure real auth.');
+  }
 }
 
 const config = {
@@ -31,7 +37,11 @@ const config = {
     env: process.env.NODE_ENV || 'development',
     port: parseInt(process.env.PORT || '3001', 10),
     logLevel: process.env.LOG_LEVEL || 'info',
-    corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:3000').split(','),
+    corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:3000')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean),
+    allowVercelPreviewOrigins: process.env.ALLOW_VERCEL_PREVIEW_ORIGINS === 'true',
     isDev: process.env.NODE_ENV === 'development',
     isProd: process.env.NODE_ENV === 'production',
     isTest: process.env.NODE_ENV === 'test',
@@ -113,6 +123,11 @@ const config = {
     apiKeyHash: process.env.API_KEY_HASH || '',
     encryptionKey: process.env.ENCRYPTION_KEY || '',
     resetPasswordUrl: process.env.RESET_PASSWORD_URL || 'http://localhost:3000',
+  },
+
+  mfa: {
+    autoVerifyEnabled: process.env.MFA_AUTO_VERIFY_ENABLED === 'true' || process.env.NODE_ENV !== 'production',
+    autoVerifyCode: process.env.MFA_AUTO_VERIFY_CODE || '123456',
   },
 };
 

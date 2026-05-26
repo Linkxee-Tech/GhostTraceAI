@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useStore } from '@/lib/store';
 import { LayoutDashboard, List, AlertCircle, FileText, Users, Database, Settings, FileSearch, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getDashboardPath, resolveDashboardType } from '@/lib/authSession';
 
 const ITEMS = [
   { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
@@ -44,7 +45,11 @@ export default function Sidebar() {
               onClick={() => {
                 setActiveTab('overview');
                 setSidebarOpen(false);
-                router.push('/');
+                if (currentUser) {
+                  router.push(getDashboardPath(resolveDashboardType(currentUser)));
+                } else {
+                  router.push('/');
+                }
               }}
               role="button"
               tabIndex={0}

@@ -41,7 +41,16 @@ function createApp() {
   app.use(cors({
     origin: (origin, cb) => {
       if (!origin) return cb(null, true); // Allow server-to-server
+      let isVercelPreview = false;
+      try {
+        isVercelPreview = /\.vercel\.app$/i.test(new URL(origin).hostname);
+      } catch (err) {
+        isVercelPreview = false;
+      }
       if (config.app.corsOrigins.includes(origin) || config.app.isDev) {
+        return cb(null, true);
+      }
+      if (config.app.allowVercelPreviewOrigins && isVercelPreview) {
         return cb(null, true);
       }
       cb(new Error(`CORS blocked: ${origin}`));

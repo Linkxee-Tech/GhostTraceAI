@@ -6,6 +6,8 @@ import { useStore } from '@/lib/store';
 import { PulseDot } from '@/components/shared/ui';
 import SettingsModal from '@/components/shared/SettingsModal';
 import { cn } from '@/lib/utils';
+import { clearSession } from '@/lib/authSession';
+import { getDashboardPath, resolveDashboardType } from '@/lib/authSession';
 import {
   LayoutDashboard, ArrowLeftRight, ShieldAlert,
   Brain, BarChart3, Settings, Bell, Menu, Search, X, User, LogOut
@@ -36,7 +38,7 @@ const SEARCHABLE = [
 
 export default function Header() {
   const router = useRouter();
-  const { wsConnected, activeTab, setActiveTab, activeAlerts, liveTransactions, sidebarOpen, setSidebarOpen } = useStore();
+  const { wsConnected, activeTab, setActiveTab, activeAlerts, liveTransactions, sidebarOpen, setSidebarOpen, currentUser } = useStore();
   const [clock, setClock]             = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen]   = useState(false);
@@ -77,7 +79,7 @@ export default function Header() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('gt_token');
+    clearSession();
     router.push('/login');
   };
 
@@ -109,7 +111,11 @@ export default function Header() {
               className="relative w-8 h-8 bg-gt-accent rounded-lg flex items-center justify-center overflow-hidden cursor-pointer"
               onClick={() => {
                 setActiveTab('overview');
-                router.push('/');
+                if (currentUser) {
+                  router.push(getDashboardPath(resolveDashboardType(currentUser)));
+                } else {
+                  router.push('/');
+                }
               }}
               role="button"
               tabIndex={0}

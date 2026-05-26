@@ -4,7 +4,8 @@ import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { WsTransactionUpdate, WsAgentReasoning } from '../lib/types';
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001';
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL?.trim()
+  || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001');
 
 type EventHandlers = {
   onTransactionUpdate?: (data: WsTransactionUpdate) => void;
@@ -14,9 +15,10 @@ type EventHandlers = {
   onDisconnected?: () => void;
 };
 
-export function useWebSocket(handlers: EventHandlers) {
+export function useWebSocket(handlers: EventHandlers, enabled = true) {
   const socketRef = useRef<Socket | null>(null);
   const handlersRef = useRef(handlers);
+  const manualDisconnectRef = useRef(false);
 
   // Keep handlers ref fresh without reconnecting
   useEffect(() => {
@@ -27,10 +29,12 @@ export function useWebSocket(handlers: EventHandlers) {
     if (socketRef.current?.connected) return;
 
     const token = typeof window !== 'undefined' ? localStorage.getItem('gt_token') : null;
+    if (!token) return;
 
+    manualDisconnectRef.current = false;
     socketRef.current = io(WS_URL, {
       transports: ['websocket', 'polling'],
-      auth: token ? { token } : undefined,
+      auth: { token },
       reconnectionAttempts: 10,
       reconnectionDelay: 2000,
       reconnectionDelayMax: 10000,
@@ -45,7 +49,13 @@ export function useWebSocket(handlers: EventHandlers) {
     });
 
     socket.on('disconnect', (reason) => {
-      console.warn('[GhostTrace WS] Disconnected:', reason);
+      if (manualDisconnectRef.current) {
+        console.debug('[GhostTrace WS] Disconnected (cleanup):', reason);
+      } else if (reason === 'io client disconnect' || reason === 'transport close') {
+        console.info('[GhostTrace WS] Disconnected:', reason);
+      } else {
+        console.warn('[GhostTrace WS] Disconnected:', reason);
+      }
       handlersRef.current.onDisconnected?.();
     });
 
@@ -67,12 +77,16 @@ export function useWebSocket(handlers: EventHandlers) {
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     connect();
     return () => {
-      socketRef.current?.disconnect();
-      socketRef.current = null;
+      if (socketRef.current) {
+        manualDisconnectRef.current = true;
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
     };
-  }, [connect]);
+  }, [connect, enabled]);
 
   return {
     isConnected: () => socketRef.current?.connected ?? false,

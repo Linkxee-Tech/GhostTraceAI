@@ -18,11 +18,14 @@ const { authLimiter, validateRequest } = require('../middleware/validators');
 const logger = require('../../utils/logger').forModule('authRoutes');
 
 function buildFallbackUser(req) {
+  const email = req.body?.email || req.user.email || 'dev@ghosttrace.ai';
+  const isDemoAccount = String(email).toLowerCase().includes('demo');
   return {
     userId: req.user.sub || 'dev-user',
-    email: req.body?.email || req.user.email || 'dev@ghosttrace.ai',
+    email,
     name: req.user.name || 'Dev Bypass User',
     role: req.user.role || 'analyst',
+    accountType: isDemoAccount ? 'demo' : req.user.role || 'analyst',
     status: 'active',
     lastLoginAt: new Date(),
     lastLoginIp: req.ip,
@@ -63,6 +66,7 @@ router.post(
       if (process.env.BYPASS_AUTH === 'true' && process.env.NODE_ENV !== 'production') {
         const inputEmail = String(req.body.email || '').toLowerCase();
         const role = inputEmail.includes('admin') ? 'admin' : 'analyst';
+        const accountType = inputEmail.includes('demo') ? 'demo' : role;
         const name = role === 'admin' ? 'Dev Admin User' : 'Dev User';
         const bypassId = inputEmail.includes('admin')
           ? 'user-dev-admin'
@@ -74,6 +78,7 @@ router.post(
         const token = generateToken({
           sub: bypassId,
           role,
+          accountType,
           email: inputEmail,
           name,
           sessionId: null,
@@ -86,6 +91,7 @@ router.post(
               email: req.body.email,
               name,
               role,
+              accountType,
               status: 'active',
               lastLoginAt: new Date(),
               lastLoginIp: req.ip,
@@ -137,18 +143,16 @@ router.post(
 
 router.get('/me', authenticate, async (req, res) => {
   try {
+    if (process.env.BYPASS_AUTH === 'true' && process.env.NODE_ENV !== 'production') {
+      return res.json({ success: true, data: buildFallbackUser(req) });
+    }
+
     const user = await getCurrentUser(req.user.sub);
     if (!user) {
-      if (process.env.BYPASS_AUTH === 'true' && process.env.NODE_ENV !== 'production') {
-        return res.json({ success: true, data: buildFallbackUser(req) });
-      }
       return res.status(404).json({ success: false, error: 'User not found' });
     }
     res.json({ success: true, data: user });
   } catch (err) {
-    if (process.env.BYPASS_AUTH === 'true' && process.env.NODE_ENV !== 'production') {
-      return res.json({ success: true, data: buildFallbackUser(req) });
-    }
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -225,6 +229,7 @@ router.post(
       const payload = {
         sub: req.user.sub,
         role: req.user.role,
+        accountType: req.user.accountType || req.user.role,
         sessionId: req.user.sessionId,
       };
       if (req.user.email) payload.email = req.user.email;

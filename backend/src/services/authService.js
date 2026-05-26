@@ -84,6 +84,9 @@ async function loginWithEmail(email, password, meta = {}) {
   const token = generateToken({
     sub: user.userId,
     role: user.role,
+    accountType: user.email.includes('demo') ? 'demo' : user.role,
+    email: user.email,
+    name: user.name || '',
     sessionId,
   });
 
@@ -249,4 +252,3 @@ module.exports = {
   createPasswordResetToken,
   resetPassword,
 };
-
