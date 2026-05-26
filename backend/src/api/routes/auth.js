@@ -9,11 +9,26 @@ const {
   getCurrentUser,
   createPasswordResetToken,
   resetPassword,
+  generateToken,
 } = require('../../services/authService');
 const User = require('../../db/schemas/User');
+const config = require('../../config');
 const { authenticate } = require('../middleware/auth');
 const { authLimiter, validateRequest } = require('../middleware/validators');
 const logger = require('../../utils/logger').forModule('authRoutes');
+
+function buildFallbackUser(req) {
+  return {
+    userId: req.user.sub || 'dev-user',
+    email: req.body?.email || req.user.email || 'dev@ghosttrace.ai',
+    name: req.user.name || 'Dev Bypass User',
+    role: req.user.role || 'analyst',
+    status: 'active',
+    lastLoginAt: new Date(),
+    lastLoginIp: req.ip,
+    sessions: [],
+  };
+}
 
 const router = express.Router();
 
@@ -43,6 +58,44 @@ router.post(
   validateRequest,
   async (req, res) => {
     try {
+      logger.info({ BYPASS_AUTH: process.env.BYPASS_AUTH, NODE_ENV: process.env.NODE_ENV }, 'Login attempt');
+      // Dev bypass mode when BYPASS_AUTH=true (skips database)
+      if (process.env.BYPASS_AUTH === 'true' && process.env.NODE_ENV !== 'production') {
+        const inputEmail = String(req.body.email || '').toLowerCase();
+        const role = inputEmail.includes('admin') ? 'admin' : 'analyst';
+        const name = role === 'admin' ? 'Dev Admin User' : 'Dev User';
+        const bypassId = inputEmail.includes('admin')
+          ? 'user-dev-admin'
+          : inputEmail.includes('demo')
+            ? 'user-dev-demo'
+            : 'user-dev-user';
+
+        logger.info({ email: req.body.email, role, mode: 'BYPASS_AUTH' }, 'BYPASS_AUTH login');
+        const token = generateToken({
+          sub: bypassId,
+          role,
+          email: inputEmail,
+          name,
+          sessionId: null,
+        });
+        return res.json({
+          success: true,
+          data: {
+            user: {
+              userId: bypassId,
+              email: req.body.email,
+              name,
+              role,
+              status: 'active',
+              lastLoginAt: new Date(),
+              lastLoginIp: req.ip,
+              sessions: [],
+            },
+            token,
+          },
+        });
+      }
+
       const meta = {
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'] || 'unknown',
@@ -85,9 +138,17 @@ router.post(
 router.get('/me', authenticate, async (req, res) => {
   try {
     const user = await getCurrentUser(req.user.sub);
-    if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+    if (!user) {
+      if (process.env.BYPASS_AUTH === 'true' && process.env.NODE_ENV !== 'production') {
+        return res.json({ success: true, data: buildFallbackUser(req) });
+      }
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
     res.json({ success: true, data: user });
   } catch (err) {
+    if (process.env.BYPASS_AUTH === 'true' && process.env.NODE_ENV !== 'production') {
+      return res.json({ success: true, data: buildFallbackUser(req) });
+    }
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -148,19 +209,30 @@ router.post(
 router.post(
   '/mfa/verify',
   authLimiter,
+  authenticate,
   [body('code').isString().notEmpty().withMessage('MFA code is required')],
   validateRequest,
   async (req, res) => {
     try {
-      // Mock MFA verification logic for MVP.
-      // In a real implementation, you would verify the code against the user's secret
-      // and issue a new, fully authenticated token.
-      if (req.body.code === '123456') { // Simple mock bypass for testing if needed
-        return res.json({ success: true, data: { token: 'mock-fully-authenticated-jwt-token' } });
+      const code = req.body.code;
+      const expectedCode = config.mfa.autoVerifyCode;
+
+      // Mock MFA verification for local/demo environments. Replace this block with a real OTP provider later.
+      if (!config.mfa.autoVerifyEnabled || code !== expectedCode) {
+        return res.status(401).json({ success: false, error: 'Invalid authentication code' });
       }
-      
-      // We will accept any 6 digit code for now to allow the UI to function
-      res.json({ success: true, data: { token: 'mock-fully-authenticated-jwt-token' } });
+
+      const payload = {
+        sub: req.user.sub,
+        role: req.user.role,
+        sessionId: req.user.sessionId,
+      };
+      if (req.user.email) payload.email = req.user.email;
+      if (req.user.name) payload.name = req.user.name;
+
+      const token = generateToken(payload);
+
+      return res.json({ success: true, data: { token } });
     } catch (err) {
       res.status(400).json({ success: false, error: err.message });
     }
