@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, requireRole } = require('../middleware/auth');
 const Rule = require('../../db/schemas/Rule');
 const Settings = require('../../db/schemas/Settings');
 
@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
 });
 
 // PATCH /api/v1/rules/:id
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', requireRole('admin'), async (req, res) => {
   try {
     const updatedRule = await Rule.findOneAndUpdate(
       { ruleId: req.params.id },
@@ -35,7 +35,7 @@ router.patch('/:id', async (req, res) => {
 });
 
 // PATCH /api/v1/rules/thresholds (This updates settings but is routed here per frontend)
-router.patch('/thresholds', async (req, res) => {
+router.patch('/thresholds', requireRole('admin'), async (req, res) => {
   try {
     let settings = await Settings.findOne();
     if (!settings) {

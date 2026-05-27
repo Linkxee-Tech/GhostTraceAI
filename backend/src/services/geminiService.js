@@ -1,10 +1,12 @@
-'use strict';
+ 'use strict';
 
 const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
 const { v4: uuidv4 } = require('uuid');
 const config = require('../config');
 const logger = require('../utils/logger').forModule('gemini');
 const { ModelExplanation } = require('../db/schemas/Fraud');
+const { z } = require('zod');
+const { toAnalysisContract } = require('../utils/analysisContract');
 
 let geminiClient = null;
 let model = null;
@@ -159,27 +161,36 @@ function parseAndValidateResponse(raw) {
     const cleaned = raw.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(cleaned);
 
-    // Validate required fields
-    const required = ['fraudScore', 'confidence', 'isFraud', 'recommendedAction', 'explanation', 'riskFactors'];
-    for (const field of required) {
-      if (parsed[field] === undefined) {
-        logger.warn({ field }, 'Gemini response missing required field');
-        return null;
-      }
+    // Strict schema validation using zod
+    const RiskFactor = z.object({
+      factor: z.string(),
+      score: z.number().int().min(0).max(100),
+      description: z.string(),
+    });
+
+    const ResponseSchema = z.object({
+      fraudScore: z.number().int().min(0).max(100),
+      confidence: z.number().min(0).max(1),
+      isFraud: z.boolean(),
+      recommendedAction: z.enum(['clear', 'flag', 'block', 'freeze', 'escalate', 'request_review']),
+      riskFactors: z.array(RiskFactor),
+      explanation: z.string(),
+      reasoning: z.array(z.string()).optional(),
+      anomalies: z.array(z.string()).optional(),
+    });
+
+    const parsedValidated = ResponseSchema.safeParse(parsed);
+    if (!parsedValidated.success) {
+      logger.warn({ issues: parsedValidated.error.format(), raw: cleaned.substring(0, 2000) }, 'Gemini response failed schema validation');
+      return null;
     }
 
-    // Clamp and validate numeric fields
-    parsed.fraudScore = Math.max(0, Math.min(100, Math.round(Number(parsed.fraudScore))));
-    parsed.confidence = Math.max(0, Math.min(1, Number(parsed.confidence)));
-    parsed.isFraud = Boolean(parsed.isFraud);
+    // Normalize and clamp numeric fields (defensive)
+    const out = parsedValidated.data;
+    out.fraudScore = Math.max(0, Math.min(100, Math.round(Number(out.fraudScore))));
+    out.confidence = Math.max(0, Math.min(1, Number(out.confidence)));
 
-    // Validate action
-    const validActions = ['clear', 'flag', 'block', 'freeze', 'escalate', 'request_review'];
-    if (!validActions.includes(parsed.recommendedAction)) {
-      parsed.recommendedAction = parsed.fraudScore >= 80 ? 'block' : 'flag';
-    }
-
-    return parsed;
+    return out;
   } catch (err) {
     logger.error({ err, raw: raw?.substring(0, 500) }, 'Failed to parse Gemini response');
     return null;
@@ -204,7 +215,7 @@ function ruleBasedFallback(txn, velocityData) {
 
   score = Math.min(score, 100);
 
-  return {
+  const base = {
     fraudScore: score,
     confidence: 0.6, // Lower confidence for rule-based
     isFraud: score >= config.agent.blockThreshold,
@@ -214,6 +225,7 @@ function ruleBasedFallback(txn, velocityData) {
     reasoning: reasons,
     anomalies: reasons,
   };
+  return { ...base, ...toAnalysisContract(base) };
 }
 
 /**
@@ -244,6 +256,8 @@ async function analyzeFraud(txn, velocityData, historicalContext = {}) {
       fallbackUsed = true;
       fallbackReason = 'invalid_response_format';
       result = ruleBasedFallback(txn, velocityData);
+    } else {
+      result = { ...result, ...toAnalysisContract(result) };
     }
   } catch (err) {
     logger.error({ err, txnId: txn.txnId }, 'Gemini API call failed — using rule-based fallback');

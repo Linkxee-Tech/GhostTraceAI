@@ -30,6 +30,11 @@ if (process.env.NODE_ENV !== 'test') {
   if (process.env.BYPASS_AUTH === 'true' && process.env.NODE_ENV === 'production') {
     throw new Error('BYPASS_AUTH cannot be enabled in production. Set BYPASS_AUTH=false and configure real auth.');
   }
+
+  const corsOrigins = (process.env.CORS_ORIGINS || '').split(',').map((origin) => origin.trim()).filter(Boolean);
+  if (process.env.NODE_ENV === 'production' && corsOrigins.some((origin) => /localhost|127\.0\.0\.1/i.test(origin))) {
+    throw new Error('CORS_ORIGINS contains localhost in production. Set it to your deployed frontend origin(s).');
+  }
 }
 
 const config = {
@@ -123,6 +128,12 @@ const config = {
     apiKeyHash: process.env.API_KEY_HASH || '',
     encryptionKey: process.env.ENCRYPTION_KEY || '',
     resetPasswordUrl: process.env.RESET_PASSWORD_URL || 'http://localhost:3000',
+  },
+  webhooks: {
+    signingSecret: process.env.WEBHOOK_SIGNING_SECRET || '',
+    signatureToleranceSec: parseInt(process.env.WEBHOOK_SIGNATURE_TOLERANCE_SEC || '300', 10),
+    stripeSigningSecret: process.env.WEBHOOK_STRIPE_SIGNING_SECRET || '',
+    paystackSigningSecret: process.env.WEBHOOK_PAYSTACK_SIGNING_SECRET || '',
   },
 
   mfa: {

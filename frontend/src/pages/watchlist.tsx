@@ -2,17 +2,13 @@
 
 import React, { useState } from 'react';
 import useSWR from 'swr';
-import { Panel, PanelHeader, Badge, Spinner } from '@/components/shared/ui';
+import { Panel, PanelHeader, Badge, Spinner, EmptyState } from '@/components/shared/ui';
 import { Search, Plus, Trash2, X } from 'lucide-react';
 import { fetchWatchlist, addWatchlistEntity, deleteWatchlistEntity } from '@/lib/api';
 import type { WatchlistEntity } from '@/lib/types';
 import toast from 'react-hot-toast';
 
-const MOCK_WATCHLIST: WatchlistEntity[] = [
-  { _id: '1', entityId: 'WL-001', type: 'IP Address', value: '192.168.1.105', reason: 'Known VPN/Proxy Node', addedBy: 'System', createdAt: '2026-05-20T10:00:00Z' },
-  { _id: '2', entityId: 'WL-002', type: 'Account', value: 'ACC-88392', reason: 'Suspicious velocity patterns', addedBy: 'Alice S.', createdAt: '2026-05-21T10:00:00Z' },
-  { _id: '3', entityId: 'WL-003', type: 'Device Hash', value: 'a8f9c2...11b', reason: 'Linked to multiple fraud cases', addedBy: 'Bob J.', createdAt: '2026-05-22T10:00:00Z' },
-];
+// Removed hard-coded demo watchlist; fetch from API instead
 
 export default function WatchlistPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -22,12 +18,12 @@ export default function WatchlistPage() {
   const [entityReason, setEntityReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const { data, isLoading, mutate } = useSWR('watchlist', () => fetchWatchlist());
-  const watchlist = data?.data || MOCK_WATCHLIST;
+  const { data, error, mutate } = useSWR('watchlist', () => fetchWatchlist().then((r) => r.data), { revalidateOnFocus: false, shouldRetryOnError: false });
+  const watchlist = data || [];
 
   const filteredWatchlist = watchlist.filter(item => 
-    item.value.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    item.reason.toLowerCase().includes(searchTerm.toLowerCase())
+    (item.value || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (item.reason || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleAddEntity = async (e: React.FormEvent) => {
@@ -90,7 +86,9 @@ export default function WatchlistPage() {
             </div>
           }
         />
-        {isLoading ? (
+        {error ? (
+          <div className="p-6"><EmptyState message="Unable to load watchlist — check backend connection." /></div>
+        ) : !data ? (
           <div className="flex justify-center py-12"><Spinner /></div>
         ) : (
           <div className="overflow-x-auto">

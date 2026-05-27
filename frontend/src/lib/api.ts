@@ -102,6 +102,43 @@ export const submitTransaction = async (payload: Partial<Transaction>): Promise<
   return data.data;
 };
 
+export interface IngestResult {
+  status: 'accepted' | 'duplicate';
+  normalizedTxnId: string;
+  ingestId: string;
+}
+
+export const ingestTransaction = async (payload: Partial<Transaction> & {
+  transactionId?: string;
+  sourceSystem?: string;
+  metadata?: Record<string, unknown>;
+  riskFlags?: string[];
+}): Promise<IngestResult> => {
+  const { data } = await apiClient.post<ApiResponse<IngestResult>>('/transactions/ingest', payload);
+  return data.data;
+};
+
+export const simulateTransaction = async (payload: Partial<Transaction> & {
+  transactionId?: string;
+  sourceSystem?: string;
+  metadata?: Record<string, unknown>;
+  riskFlags?: string[];
+}): Promise<IngestResult> => {
+  const { data } = await apiClient.post<ApiResponse<IngestResult>>('/transactions/simulate', payload);
+  return data.data;
+};
+
+export const ingestTransactionsBatch = async (events: Array<Record<string, unknown>>): Promise<{
+  total: number;
+  results: Array<{ ok: boolean; status?: string; normalizedTxnId?: string; ingestId?: string; error?: string; externalEventId?: string }>;
+}> => {
+  const { data } = await apiClient.post<ApiResponse<{
+    total: number;
+    results: Array<{ ok: boolean; status?: string; normalizedTxnId?: string; ingestId?: string; error?: string; externalEventId?: string }>;
+  }>>('/transactions/ingest/batch', { events });
+  return data.data;
+};
+
 export interface LoginResult {
   user: UserAccount;
   token: string;

@@ -75,6 +75,19 @@ const TransactionSchema = new Schema(
       enum: ['online', 'pos', 'atm', 'mobile', 'api', 'wire'],
       default: 'online',
     },
+    paymentMethod: {
+      type: String,
+      enum: ['card', 'bank_transfer', 'wallet', 'crypto', 'ach', 'cash', 'other'],
+      default: 'other',
+      index: true,
+    },
+    sourceSystem: {
+      type: String,
+      default: 'internal_api',
+      index: true,
+    },
+    metadata: { type: Schema.Types.Mixed, default: {} },
+    riskFlags: [{ type: String }],
     status: {
       type: String,
       enum: ['pending', 'cleared', 'flagged', 'blocked', 'frozen', 'under_review', 'approved', 'rejected'],
@@ -88,6 +101,7 @@ const TransactionSchema = new Schema(
     // AI Agent fields
     agentProcessed: { type: Boolean, default: false, index: true },
     agentProcessedAt: { type: Date },
+    agentLock: { type: Boolean, default: false, index: true },
     fraudScore: { type: Number, min: 0, max: 100, default: null },
     fraudConfidence: { type: Number, min: 0, max: 1, default: null },
     isFraud: { type: Boolean, default: null },
@@ -135,6 +149,7 @@ TransactionSchema.index({ 'device.fingerprint': 1, createdAt: -1 });
 TransactionSchema.index({ 'geo.country': 1, accountId: 1 });
 // Text index for search
 TransactionSchema.index({ 'merchant.name': 'text', txnId: 'text' });
+TransactionSchema.index({ sourceSystem: 1, createdAt: -1 });
 
 // TTL: archive processed, non-flagged transactions after 90 days
 TransactionSchema.index(

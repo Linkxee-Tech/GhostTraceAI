@@ -66,8 +66,63 @@ router.get(
       if (!explanation) {
         return res.status(404).json({ success: false, error: 'No explanation found for this transaction' });
       }
+      const parsed = explanation.parsedOutput || {};
+      res.json({
+        success: true,
+        data: {
+          transactionId: req.params.txnId,
+          riskScore: parsed.riskScore ?? parsed.fraudScore ?? null,
+          fraudCategory: parsed.fraudCategory || null,
+          confidence: parsed.confidence ?? null,
+          recommendedAction: parsed.recommendedAction || null,
+          reasoning: parsed.reasoning || [],
+          explanation: parsed.explanation || '',
+          anomalies: parsed.anomalies || [],
+          latencyMs: explanation.latencyMs,
+          fallbackUsed: explanation.fallbackUsed,
+          createdAt: explanation.createdAt,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
-      res.json({ success: true, data: explanation });
+/**
+ * GET /api/v1/analysis/:transactionId
+ * Unified analysis contract endpoint.
+ */
+router.get(
+  '/analysis/:transactionId',
+  [param('transactionId').isString().notEmpty()],
+  validateRequest,
+  async (req, res, next) => {
+    try {
+      const explanation = await ModelExplanation.findOne({ txnId: req.params.transactionId })
+        .sort({ createdAt: -1 })
+        .lean();
+      if (!explanation) {
+        return res.status(404).json({ success: false, error: 'No analysis found for this transaction' });
+      }
+
+      const parsed = explanation.parsedOutput || {};
+      return res.json({
+        success: true,
+        data: {
+          transactionId: req.params.transactionId,
+          riskScore: parsed.riskScore ?? parsed.fraudScore ?? null,
+          fraudCategory: parsed.fraudCategory || null,
+          confidence: parsed.confidence ?? null,
+          recommendedAction: parsed.recommendedAction || null,
+          reasoning: parsed.reasoning || [],
+          explanation: parsed.explanation || '',
+          anomalies: parsed.anomalies || [],
+          latencyMs: explanation.latencyMs,
+          fallbackUsed: explanation.fallbackUsed,
+          createdAt: explanation.createdAt,
+        },
+      });
     } catch (err) {
       next(err);
     }

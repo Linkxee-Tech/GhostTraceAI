@@ -12,45 +12,54 @@ const logger = require('./utils/logger').forModule('server');
 
 let server = null;
 
+async function connectWithRetry(broadcastFn, attempt = 1) {
+  try {
+    await connect();
+
+    logger.info('MongoDB connected — starting change stream and agent pipeline');
+
+    await startChangeStream(async (txnDoc) => {
+      await processTransaction(txnDoc, broadcastFn);
+    });
+
+    await reprocessPendingTransactions(broadcastFn);
+  } catch (err) {
+    const delayMs = Math.min(5000 * attempt, 30000);
+    logger.warn({ err: err.message, attempt, nextRetryMs: delayMs },
+      'MongoDB connection failed — retrying in background...');
+    setTimeout(() => connectWithRetry(broadcastFn, attempt + 1), delayMs);
+  }
+}
+
 async function start() {
   logger.info('Starting GhostTrace AI backend…');
 
-  // ── 1. Connect to MongoDB ─────────────────────────────────
-  await connect();
-
-  // ── 2. Create Express app and HTTP server ─────────────────
+  // ── 1. Create Express app and HTTP server ─────────────────
+  // NOTE: We start the HTTP server BEFORE connecting to MongoDB.
+  // This allows the server to accept requests immediately and
+  // self-heal when the DB becomes available.
   const app = createApp();
   server = http.createServer(app);
 
-  // ── 3. Initialize WebSocket on the same HTTP server ───────
+  // ── 2. Initialize WebSocket ────────────────────────────────
   initWebSocket(server);
 
-  // ── 4. Start MCP server for GCAB / MCP tool integration ─────
-  await startMcpServer();
-
-  // ── 5. Start MongoDB Change Stream ────────────────────────
-  //    Pass a broadcast callback so the agent can push WS events
-  const broadcastFn = (event, data) => broadcast(event, data);
-
-  await startChangeStream(async (txnDoc) => {
-    // This fires for every new/updated transaction
-    await processTransaction(txnDoc, broadcastFn);
+  // ── 3. Start MCP server ────────────────────────────────────
+  await startMcpServer().catch((err) => {
+    logger.warn({ err: err.message }, 'MCP server failed to start — continuing without MCP');
   });
 
-  // ── 5. Reprocess any transactions missed while offline ─────
-  await reprocessPendingTransactions(broadcastFn);
-
-  // ── 6. Start HTTP server ───────────────────────────────────
+  // ── 4. Start HTTP server immediately ──────────────────────
   await new Promise((resolve) => server.listen(config.app.port, resolve));
 
   logger.info(
-    {
-      port:     config.app.port,
-      env:      config.app.env,
-      mongoDb:  config.mongodb.dbName,
-    },
-    `GhostTrace AI running on port ${config.app.port}`
+    { port: config.app.port, env: config.app.env },
+    `GhostTrace AI HTTP server running on port ${config.app.port}`
   );
+
+  // ── 5. Connect to MongoDB in background with retries ──────
+  const broadcastFn = (event, data) => broadcast(event, data);
+  connectWithRetry(broadcastFn);
 }
 
 // ── Graceful shutdown ─────────────────────────────────────────

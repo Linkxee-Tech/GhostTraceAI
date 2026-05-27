@@ -1,11 +1,9 @@
-'use client';
+"use client";
 
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { getToken, getWebSocketUrl } from '../lib/authSession';
 import type { WsTransactionUpdate, WsAgentReasoning } from '../lib/types';
-
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL?.trim()
-  || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001');
 
 type EventHandlers = {
   onTransactionUpdate?: (data: WsTransactionUpdate) => void;
@@ -28,11 +26,12 @@ export function useWebSocket(handlers: EventHandlers, enabled = true) {
   const connect = useCallback(() => {
     if (socketRef.current?.connected) return;
 
-    const token = typeof window !== 'undefined' ? localStorage.getItem('gt_token') : null;
+    const token = getToken();
     if (!token) return;
 
     manualDisconnectRef.current = false;
-    socketRef.current = io(WS_URL, {
+    const wsUrl = getWebSocketUrl();
+    socketRef.current = io(wsUrl, {
       transports: ['websocket', 'polling'],
       auth: { token },
       reconnectionAttempts: 10,

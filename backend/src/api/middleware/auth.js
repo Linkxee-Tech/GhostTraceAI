@@ -5,6 +5,17 @@ const logger = require('../../utils/logger').forModule('authMiddleware');
 
 async function authenticate(req, res, next) {
   if (process.env.BYPASS_AUTH === 'true' && process.env.NODE_ENV !== 'production') {
+    const authHeader = req.headers['authorization'];
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7);
+      try {
+        req.user = await verifyTokenSession(token);
+        return next();
+      } catch (err) {
+        logger.debug({ err: err.message }, 'BYPASS_AUTH token verification failed, falling back to dev user');
+      }
+    }
+
     req.user = { sub: 'dev-user', role: 'analyst' };
     return next();
   }

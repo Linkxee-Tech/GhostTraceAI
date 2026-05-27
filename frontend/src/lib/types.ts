@@ -15,6 +15,10 @@ export interface Transaction {
   currency: string;
   type: string;
   channel: string;
+  paymentMethod?: string;
+  sourceSystem?: string;
+  metadata?: Record<string, unknown>;
+  riskFlags?: string[];
   status: TransactionStatus;
   merchant?: { name: string; category: string; country: string; riskTier: string; };
   device?: { isKnownDevice: boolean; isTor: boolean; isVpn: boolean; ipCountry: string; };

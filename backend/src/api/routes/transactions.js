@@ -9,6 +9,7 @@ const { authenticate } = require('../middleware/auth');
 const { validateRequest } = require('../middleware/validators');
 const vectorService = require('../../services/vectorService');
 const logger = require('../../utils/logger').forModule('txnRoutes');
+const { ingestEvent } = require('../../services/transactionIngestionService');
 
 const router = express.Router();
 
@@ -116,11 +117,17 @@ router.get(
 router.post(
   '/',
   [
+    body('transactionId').optional().isString(),
+    body('userId').optional().isString(),
     body('accountId').isString().notEmpty(),
     body('amount').isFloat({ min: 0.01 }),
     body('currency').optional().isLength({ min: 3, max: 3 }),
-    body('type').isIn(['debit', 'credit', 'transfer', 'withdrawal', 'purchase', 'wire']),
+    body('type').optional().isIn(['debit', 'credit', 'transfer', 'withdrawal', 'purchase', 'wire']),
     body('channel').optional().isIn(['online', 'pos', 'atm', 'mobile', 'api', 'wire']),
+    body('paymentMethod').optional().isString(),
+    body('sourceSystem').optional().isString(),
+    body('metadata').optional().isObject(),
+    body('riskFlags').optional().isArray(),
   ],
   validateRequest,
   async (req, res, next) => {
@@ -130,30 +137,33 @@ router.post(
         return res.status(201).json({ success: true, data: { txnId, status: 'pending' } });
       }
 
-      const txnId = `TXN-${uuidv4().slice(0, 8).toUpperCase()}`;
-
-      const txn = await Transaction.create({
-        txnId,
-        accountId:  req.body.accountId,
-        userId:     req.body.userId,
-        amount:     req.body.amount,
-        currency:   req.body.currency   || 'USD',
-        type:       req.body.type,
-        channel:    req.body.channel    || 'api',
-        merchant:   req.body.merchant,
-        device:     req.body.device,
-        geo:        req.body.geo,
-        rawPayload: req.body,
-        status:     'pending',
+      const result = await ingestEvent({
+        payload: {
+          ...req.body,
+          transactionId: req.body.transactionId || `TXN-${uuidv4().slice(0, 8).toUpperCase()}`,
+        },
+        sourceType: 'api',
+        sourceSystem: req.body.sourceSystem || 'legacy_transactions_api',
+        externalEventId: req.body.eventId || req.body.transactionId,
+        requestMeta: {
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+          actorId: req.user?.sub,
+        },
       });
 
-      logger.info({ txnId, amount: txn.amount }, 'Transaction submitted via API');
+      const txn = await Transaction.findOne({ txnId: result.normalizedTxnId });
+      if (!txn) {
+        return res.status(500).json({ success: false, error: 'Transaction persisted but could not be loaded' });
+      }
 
-      // Persist vector embeddings for this transaction so Atlas vector search can be used immediately.
+      logger.info({ txnId: txn.txnId, amount: txn.amount }, 'Transaction submitted via API');
       await vectorService.persistTransactionEmbedding(txn);
 
-      // The change stream will automatically pick this up and process it
-      res.status(201).json({ success: true, data: { txnId: txn.txnId, status: txn.status } });
+      res.status(result.status === 'duplicate' ? 200 : 201).json({
+        success: true,
+        data: { txnId: txn.txnId, status: txn.status, ingestStatus: result.status, ingestId: result.ingestId },
+      });
     } catch (err) {
       next(err);
     }

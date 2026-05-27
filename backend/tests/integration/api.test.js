@@ -51,6 +51,44 @@ describe('POST /api/v1/auth/token', () => {
   });
 });
 
+describe('POST /api/v1/auth/mfa/verify', () => {
+  test('returns a valid token for the demo MFA code', async () => {
+    const loginRes = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'demo@ghosttrace.ai', password: 'demo' });
+
+    expect(loginRes.status).toBe(200);
+    expect(loginRes.body.success).toBe(true);
+    const loginToken = loginRes.body.data.token;
+
+    const res = await request(app)
+      .post('/api/v1/auth/mfa/verify')
+      .set('Authorization', `Bearer ${loginToken}`)
+      .send({ code: '123456' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(typeof res.body.data.token).toBe('string');
+    expect(res.body.data.token.length).toBeGreaterThan(10);
+  });
+
+  test('rejects an invalid MFA code', async () => {
+    const loginRes = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'demo@ghosttrace.ai', password: 'demo' });
+
+    const loginToken = loginRes.body.data.token;
+
+    const res = await request(app)
+      .post('/api/v1/auth/mfa/verify')
+      .set('Authorization', `Bearer ${loginToken}`)
+      .send({ code: '000000' });
+
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+  });
+});
+
 // ── Transaction routes ────────────────────────────────────────
 describe('GET /api/v1/transactions', () => {
   test('returns 200 with valid auth header (bypass mode)', async () => {
@@ -78,6 +116,81 @@ describe('POST /api/v1/transactions', () => {
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
     expect(Array.isArray(res.body.details)).toBe(true);
+  });
+});
+
+describe('Ingestion endpoints', () => {
+  test('requires auth for /api/v1/transactions/ingest', async () => {
+    const res = await request(app).post('/api/v1/transactions/ingest').send({
+      accountId: 'acc-1',
+      amount: 100,
+      currency: 'USD',
+    });
+    expect([400, 401]).toContain(res.status);
+  });
+
+  test('compat alias /api/transactions/ingest is mounted', async () => {
+    const res = await request(app).post('/api/transactions/ingest').send({
+      accountId: 'acc-1',
+      amount: 100,
+      currency: 'USD',
+    });
+    expect([400, 401]).toContain(res.status);
+  });
+
+  test('simulate endpoint enforces admin role', async () => {
+    const loginRes = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'user@ghosttrace.ai', password: 'demo' });
+    const token = loginRes.body.data.token;
+
+    const res = await request(app)
+      .post('/api/v1/transactions/simulate')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ accountId: 'acc-1', amount: 100, currency: 'USD' });
+
+    expect(res.status).toBe(403);
+  });
+
+  test('batch endpoint validates payload shape', async () => {
+    const loginRes = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'admin@ghosttrace.ai', password: 'demo' });
+    const token = loginRes.body.data.token;
+
+    const res = await request(app)
+      .post('/api/v1/transactions/ingest/batch')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ events: 'not-an-array' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+});
+
+describe('Webhook ingestion security', () => {
+  test('rejects generic webhook with stale timestamp', async () => {
+    const staleTs = Math.floor(Date.now() / 1000) - 3600;
+    const res = await request(app)
+      .post('/api/v1/webhooks/payments')
+      .set('x-webhook-provider', 'generic')
+      .set('x-gt-timestamp', String(staleTs))
+      .set('x-gt-signature', 'sha256=invalid')
+      .send({ transactionId: 'tx-1', accountId: 'acc-1', amount: 1, currency: 'USD' });
+
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+  });
+
+  test('rejects stripe webhook with invalid signature', async () => {
+    const res = await request(app)
+      .post('/api/v1/webhooks/payments')
+      .set('x-webhook-provider', 'stripe')
+      .set('stripe-signature', 't=123,v1=invalid')
+      .send({ id: 'evt_1', data: { object: { id: 'pi_1', customer: 'cus_1', amount: 100, currency: 'usd' } } });
+
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
   });
 });
 

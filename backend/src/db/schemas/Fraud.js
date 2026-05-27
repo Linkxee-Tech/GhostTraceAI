@@ -219,6 +219,8 @@ const ModelExplanationSchema = new Schema(
     rawPrompt: { type: String },
     rawResponse: { type: String },
     parsedOutput: {
+      riskScore: Number,
+      fraudCategory: String,
       fraudScore: Number,
       confidence: Number,
       riskFactors: [{ factor: String, score: Number, description: String }],

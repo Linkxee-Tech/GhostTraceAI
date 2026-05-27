@@ -21,6 +21,8 @@ const alertRoutes       = require('./api/routes/alerts');
 const agentRoutes       = require('./api/routes/agent');
 const statsRoutes       = require('./api/routes/stats');
 const auditRoutes       = require('./api/routes/audit');
+const ingestionRoutes   = require('./api/routes/ingestion');
+const publicIntegrationRoutes = require('./api/routes/publicIntegration');
 
 // Avoid 10s+ hidden hangs when MongoDB is unavailable.
 // Routes should fail fast so the frontend can show explicit fallback states.
@@ -69,7 +71,10 @@ function createApp() {
   app.use(compression());
 
   // ── Body parsing ────────────────────────────────────────────
-  app.use(express.json({ limit: '1mb' }));
+  app.use(express.json({
+    limit: '1mb',
+    verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8'); },
+  }));
   app.use(express.urlencoded({ extended: false }));
 
   // ── HTTP request logging ─────────────────────────────────────
@@ -89,11 +94,16 @@ function createApp() {
   app.use('/api/v1/alerts',       alertRoutes);
   app.use('/api/v1/agent',        agentRoutes);
   app.use('/api/v1/audit-logs',   auditRoutes); // Frontend expects /audit-logs
+  app.use('/api/v1',              ingestionRoutes);
   app.use('/api/v1/cases',        require('./api/routes/cases'));
   app.use('/api/v1/watchlist',    require('./api/routes/watchlist'));
   app.use('/api/v1/rules',        require('./api/routes/rules'));
   app.use('/api/v1/settings',     require('./api/routes/settings'));
   app.use('/api/v1',              statsRoutes);   // /health and /stats
+
+  // Compatibility aliases for partner integrations using /api/* style routes.
+  app.use('/api', ingestionRoutes);
+  app.use('/api', publicIntegrationRoutes);
 
   // Root redirect
   app.get('/', (req, res) => {
