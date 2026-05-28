@@ -32,6 +32,7 @@ router.get(
     query('page').optional().isInt({ min: 1 }).toInt(),
     query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
     query('status').optional().isString(),
+    query('query').optional().isString(),
     query('minScore').optional().isFloat({ min: 0, max: 100 }).toFloat(),
     query('accountId').optional().isString(),
   ],
@@ -54,13 +55,31 @@ router.get(
       if (req.query.status)    filter.status    = req.query.status;
       if (req.query.accountId) filter.accountId = req.query.accountId;
       if (req.query.minScore)  filter.fraudScore = { $gte: req.query.minScore };
+      if (req.query.query) {
+        const textQuery = String(req.query.query).trim();
+        if (textQuery) {
+          filter.$or = [
+            { txnId: { $regex: textQuery, $options: 'i' } },
+            { accountId: { $regex: textQuery, $options: 'i' } },
+            { 'merchant.name': { $regex: textQuery, $options: 'i' } },
+            { sourceSystem: { $regex: textQuery, $options: 'i' } },
+          ];
+        }
+      }
+
+      const findQuery = Transaction.find(filter)
+        .skip(skip)
+        .limit(limit)
+        .lean();
+
+      if (filter.$text) {
+        findQuery.sort({ score: { $meta: 'textScore' }, createdAt: -1 });
+      } else {
+        findQuery.sort({ createdAt: -1 });
+      }
 
       const [transactions, total] = await Promise.all([
-        Transaction.find(filter)
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limit)
-          .lean(),
+        findQuery,
         Transaction.countDocuments(filter),
       ]);
 

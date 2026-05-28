@@ -5,8 +5,13 @@ import useSWR from 'swr';
 import { Panel, Badge, Spinner } from '@/components/shared/ui';
 import { FileText, Download, Calendar, Activity, ShieldAlert, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { fetchCases, fetchAlerts, fetchAuditLogs, fetchTransactions } from '@/lib/api';
+import {
+  fetchCases, fetchAlerts, fetchAuditLogs, fetchTransactions,
+  fetchIngestionSummary, fetchReplayJobs, queueReplayWindow, runReplayJob,
+  fetchComplianceSnapshots, fetchComplianceSchedules, createComplianceSnapshot, createComplianceSchedule,
+} from '@/lib/api';
 import { exportToCSV } from '@/lib/export';
+import { useStore } from '@/lib/store';
 
 interface ReportDef {
   id: string;
@@ -54,11 +59,19 @@ const REPORTS: ReportDef[] = [
 
 export default function ReportsPage() {
   const [generating, setGenerating] = useState<string | null>(null);
+  const { currentUser, liveTransactions, activeAlerts } = useStore();
+  const isDemoUser =
+    currentUser?.accountType === 'demo' ||
+    (currentUser?.email || '').toLowerCase().includes('demo');
 
   const { data: casesData } = useSWR('cases-report', () => fetchCases({ limit: 500 }));
   const { data: alertsData } = useSWR('alerts-report', () => fetchAlerts({ limit: 500 }));
   const { data: auditData } = useSWR('audit-report', () => fetchAuditLogs({ limit: 500 }));
   const { data: txnData } = useSWR('txn-report', () => fetchTransactions({ limit: 500 }));
+  const { data: ingestionSummary, mutate: reloadIngestion } = useSWR('ingestion-summary', () => fetchIngestionSummary(24));
+  const { data: replayJobs, mutate: reloadReplayJobs } = useSWR('replay-jobs', () => fetchReplayJobs(50));
+  const { data: complianceSnapshots, mutate: reloadSnapshots } = useSWR('compliance-snapshots', () => fetchComplianceSnapshots(20));
+  const { data: complianceSchedules, mutate: reloadSchedules } = useSWR('compliance-schedules', fetchComplianceSchedules);
 
   const handleGenerate = async (report: ReportDef) => {
     setGenerating(report.id);
@@ -67,7 +80,7 @@ export default function ReportsPage() {
     try {
       switch (report.id) {
         case 'fraud-summary': {
-          const alerts = alertsData?.data || [];
+          const alerts = (alertsData?.data?.length ? alertsData.data : (isDemoUser ? activeAlerts : []));
           if (!alerts.length) throw new Error('No alert data available');
           const rows = alerts.map((a) => ({
             'Alert ID': a.alertId,
@@ -116,7 +129,7 @@ export default function ReportsPage() {
           break;
         }
         case 'threat-intelligence': {
-          const txns = txnData?.data || [];
+          const txns = (txnData?.data?.length ? txnData.data : (isDemoUser ? liveTransactions : []));
           if (!txns.length) throw new Error('No transaction data available');
           const rows = txns
             .filter((t) => t.isFraud || (t.fraudScore ?? 0) > 70)
@@ -208,6 +221,94 @@ export default function ReportsPage() {
           );
         })}
       </div>
+
+      <Panel className="p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-bold text-gt-text">Ingestion Monitoring</h2>
+          <button
+            onClick={async () => {
+              await reloadIngestion();
+              await reloadReplayJobs();
+            }}
+            className="text-xs px-2 py-1 border border-[rgba(255,255,255,0.2)] rounded"
+          >
+            Refresh
+          </button>
+        </div>
+        {!ingestionSummary ? <Spinner /> : (
+          <div className="text-sm text-gt-muted space-y-2">
+            <div>Status: {ingestionSummary.statusStats.map((s) => `${s._id}:${s.count}`).join(' | ') || 'none'}</div>
+            <div>Sources: {ingestionSummary.sourceStats.map((s) => `${s._id}:${s.count}`).join(' | ') || 'none'}</div>
+            <div>Recent failures: {ingestionSummary.recentFailures.length}</div>
+            <div className="flex gap-2">
+              <button
+                className="text-xs px-2 py-1 border border-[rgba(255,255,255,0.2)] rounded"
+                onClick={async () => {
+                  const now = new Date();
+                  const from = new Date(now.getTime() - 60 * 60 * 1000);
+                  const res = await queueReplayWindow({ from: from.toISOString(), to: now.toISOString(), limit: 50 });
+                  toast.success(`Queued ${res.queuedJobs} replay jobs`);
+                  await reloadReplayJobs();
+                }}
+              >
+                Queue 1h Replay
+              </button>
+            </div>
+          </div>
+        )}
+      </Panel>
+
+      <Panel className="p-5">
+        <h2 className="text-lg font-bold text-gt-text mb-3">Replay Queue</h2>
+        {!replayJobs ? <Spinner /> : (
+          <div className="space-y-2">
+            {replayJobs.slice(0, 8).map((j) => (
+              <div key={j.jobId} className="text-xs flex items-center justify-between border-b border-[rgba(255,255,255,0.06)] pb-1">
+                <span>{j.jobId} • {j.status} • attempts {j.attempts}/{j.maxAttempts}</span>
+                {j.status !== 'completed' && (
+                  <button
+                    className="px-2 py-0.5 border border-[rgba(255,255,255,0.2)] rounded"
+                    onClick={async () => { await runReplayJob(j.jobId); await reloadReplayJobs(); }}
+                  >
+                    Run
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      <Panel className="p-5">
+        <h2 className="text-lg font-bold text-gt-text mb-3">Compliance Snapshots & Schedules</h2>
+        <div className="flex gap-2 mb-3">
+          <button
+            className="text-xs px-2 py-1 border border-[rgba(255,255,255,0.2)] rounded"
+            onClick={async () => {
+              const end = new Date();
+              const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+              await createComplianceSnapshot(start.toISOString(), end.toISOString());
+              toast.success('Compliance snapshot created');
+              await reloadSnapshots();
+            }}
+          >
+            Create 7-Day Snapshot
+          </button>
+          <button
+            className="text-xs px-2 py-1 border border-[rgba(255,255,255,0.2)] rounded"
+            onClick={async () => {
+              await createComplianceSchedule({ name: 'Weekly Compliance', frequency: 'weekly', dayOfWeekUtc: 1, hourUtc: 1 });
+              toast.success('Compliance schedule created');
+              await reloadSchedules();
+            }}
+          >
+            Add Weekly Schedule
+          </button>
+        </div>
+        <div className="text-xs text-gt-muted">
+          Snapshots: {complianceSnapshots?.length || 0} | Schedules: {complianceSchedules?.length || 0}
+        </div>
+      </Panel>
     </div>
   );
 }

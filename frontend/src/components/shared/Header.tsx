@@ -12,6 +12,7 @@ import {
   LayoutDashboard, ArrowLeftRight, ShieldAlert,
   Brain, BarChart3, Settings, Bell, Menu, Search, X, User, LogOut
 } from 'lucide-react';
+import { SIDEBAR_ITEMS } from './Sidebar';
 
 const NAV_TABS = [
   { id: 'overview',     label: 'Overview',     icon: LayoutDashboard },
@@ -21,20 +22,7 @@ const NAV_TABS = [
   { id: 'analytics',    label: 'Analytics',    icon: BarChart3 },
 ] as const;
 
-const SEARCHABLE = [
-  { label: 'Dashboard Overview', path: '/dashboard', tab: 'overview' },
-  { label: 'Transactions', path: '/transactions', tab: 'transactions' },
-  { label: 'Alerts', path: '/alerts', tab: 'alerts' },
-  { label: 'AI Agent', path: '/agent', tab: 'agent' },
-  { label: 'Analytics', path: '/analytics', tab: 'analytics' },
-  { label: 'Cases', path: '/cases', tab: 'cases' },
-  { label: 'Watchlist', path: '/watchlist', tab: 'watchlist' },
-  { label: 'Models & Rules', path: '/models', tab: 'models' },
-  { label: 'Reports', path: '/reports', tab: 'reports' },
-  { label: 'Audit Logs', path: '/audit-logs', tab: 'audit-logs' },
-  { label: 'Users', path: '/users', tab: 'users' },
-  { label: 'Settings', path: '/settings', tab: 'settings' },
-];
+const ADMIN_ONLY_PAGES = ['users', 'models', 'settings', 'audit-logs', 'ingestion', 'monitoring'];
 
 export default function Header() {
   const router = useRouter();
@@ -67,17 +55,25 @@ export default function Header() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const filteredSearch = searchQuery.trim()
-    ? SEARCHABLE.filter((s) => s.label.toLowerCase().includes(searchQuery.toLowerCase()))
-    : SEARCHABLE;
+  const searchableItems = SIDEBAR_ITEMS
+    .filter((item) => !ADMIN_ONLY_PAGES.includes(item.id) || currentUser?.role === 'admin')
+    .map((item) => ({
+      label: item.label,
+      path: item.id === 'overview'
+        ? currentUser ? getDashboardPath(resolveDashboardType(currentUser)) : '/dashboard'
+        : item.id === 'audit-logs'
+          ? '/audit-logs'
+          : `/${item.id}`,
+      tab: item.id,
+    }));
 
-  const handleSearchSelect = (item: typeof SEARCHABLE[0]) => {
+  const filteredSearch = searchQuery.trim()
+    ? searchableItems.filter((s) => s.label.toLowerCase().includes(searchQuery.toLowerCase()))
+    : searchableItems;
+
+  const handleSearchSelect = (item: typeof searchableItems[0]) => {
     setActiveTab(item.tab);
-    if (item.tab === 'overview' && currentUser) {
-      router.push(getDashboardPath(resolveDashboardType(currentUser)));
-    } else {
-      router.push(item.path);
-    }
+    router.push(item.path);
     setSearchOpen(false);
     setSearchQuery('');
   };
@@ -152,7 +148,7 @@ export default function Header() {
               className="w-full flex items-center gap-2 px-3 py-1.5 bg-gt-surface2 border border-[rgba(255,255,255,0.07)] rounded-lg text-[12px] font-mono text-gt-dim hover:border-gt-accent/30 transition-colors"
             >
               <Search size={13} />
-              <span>Search pages…</span>
+              <span>Search activity & filters…</span>
               <span className="ml-auto text-[10px] bg-gt-bg border border-[rgba(255,255,255,0.1)] px-1.5 py-0.5 rounded">⌘K</span>
             </button>
           </div>
@@ -281,11 +277,11 @@ export default function Header() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search pages and features…"
+                placeholder="Search activity, transactions, alerts, cases…"
                 className="flex-1 bg-transparent text-gt-text text-sm font-mono focus:outline-none placeholder:text-gt-dim"
                 autoFocus
               />
-              <button onClick={() => setSearchOpen(false)}><X size={14} className="text-gt-muted" /></button>
+              <button onClick={() => setSearchOpen(false)} aria-label="Close search"><X size={14} className="text-gt-muted" /></button>
             </div>
             <div className="max-h-64 overflow-y-auto py-1">
               {filteredSearch.length === 0 ? (

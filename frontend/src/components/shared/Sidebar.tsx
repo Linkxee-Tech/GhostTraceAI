@@ -1,11 +1,11 @@
 import React from 'react';
 import { useRouter } from 'next/router';
 import { useStore } from '@/lib/store';
-import { LayoutDashboard, List, AlertCircle, FileText, Users, Database, Settings, FileSearch, Activity } from 'lucide-react';
+import { LayoutDashboard, List, AlertCircle, FileText, Users, Database, Settings, FileSearch, Activity, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getDashboardPath, resolveDashboardType } from '@/lib/authSession';
 
-const ITEMS = [
+export const SIDEBAR_ITEMS = [
   { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'transactions', label: 'Transactions', icon: List },
   { id: 'alerts', label: 'Alerts', icon: AlertCircle },
@@ -15,6 +15,8 @@ const ITEMS = [
   { id: 'users', label: 'Users', icon: Users },
   { id: 'reports', label: 'Reports', icon: FileSearch },
   { id: 'analytics', label: 'Analytics', icon: Activity },
+  { id: 'monitoring', label: 'Ingestion Monitor', icon: BarChart3 },
+  { id: 'ingestion', label: 'Ingestion Ops', icon: Activity },
   { id: 'settings', label: 'Settings', icon: Settings },
   { id: 'audit-logs', label: 'Audit Logs', icon: FileText },
 ];
@@ -22,6 +24,11 @@ const ITEMS = [
 export default function Sidebar() {
   const router = useRouter();
   const { activeTab, setActiveTab, sidebarOpen, setSidebarOpen, currentUser } = useStore();
+  const closeOnMobile = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
+  };
 
   const getPath = (id: string) => {
     if (id === 'overview') {
@@ -35,7 +42,7 @@ export default function Sidebar() {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 h-full z-50 w-64 bg-gt-surface border-r border-[rgba(255,255,255,0.04)] transition-transform',
+        'fixed left-0 top-0 h-full z-50 w-64 bg-gt-surface border-r border-[rgba(255,255,255,0.04)] transition-transform lg:translate-x-0',
         sidebarOpen ? 'translate-x-0' : '-translate-x-64'
       )}
       aria-hidden={!sidebarOpen}
@@ -47,7 +54,7 @@ export default function Sidebar() {
               className="relative w-10 h-10 rounded-lg overflow-hidden cursor-pointer border border-[rgba(255,255,255,0.12)] bg-gt-surface2"
               onClick={() => {
                 setActiveTab('overview');
-                setSidebarOpen(false);
+                closeOnMobile();
                 if (currentUser) {
                   router.push(getDashboardPath(resolveDashboardType(currentUser)));
                 } else {
@@ -76,8 +83,8 @@ export default function Sidebar() {
         </div>
 
         <nav className="flex flex-col gap-1">
-          {ITEMS.filter(it => {
-            const adminOnly = ['users', 'models', 'settings', 'audit-logs'];
+          {SIDEBAR_ITEMS.filter(it => {
+            const adminOnly = ['users', 'models', 'settings', 'audit-logs', 'ingestion'];
             if (adminOnly.includes(it.id)) {
               return currentUser?.role === 'admin';
             }
@@ -90,7 +97,7 @@ export default function Sidebar() {
                 key={it.id}
                 onClick={() => {
                   setActiveTab(it.id);
-                  setSidebarOpen(false);
+                  closeOnMobile();
                   router.push(getPath(it.id));
                 }}
                 className={cn(

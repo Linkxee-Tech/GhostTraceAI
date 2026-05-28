@@ -4,6 +4,11 @@ import type {
   ApiResponse, Transaction, FraudAlert,
   AgentActionRecord, AnalystReview, DashboardStats,
   UserAccount,
+  IngestionEventRecord,
+  IngestionSummary,
+  ReplayJob,
+  ComplianceSnapshot,
+  ComplianceSchedule,
 } from './types';
 
 
@@ -42,7 +47,7 @@ export const fetchStats = async (): Promise<DashboardStats> => {
 
 // ── Transactions ─────────────────────────────────────────────
 export const fetchTransactions = async (params?: {
-  page?: number; limit?: number; status?: string; minScore?: number;
+  page?: number; limit?: number; status?: string; minScore?: number; query?: string;
 }): Promise<ApiResponse<Transaction[]>> => {
   const { data } = await apiClient.get<ApiResponse<Transaction[]>>('/transactions', { params });
   return data;
@@ -136,6 +141,62 @@ export const ingestTransactionsBatch = async (events: Array<Record<string, unkno
     total: number;
     results: Array<{ ok: boolean; status?: string; normalizedTxnId?: string; ingestId?: string; error?: string; externalEventId?: string }>;
   }>>('/transactions/ingest/batch', { events });
+  return data.data;
+};
+
+export const fetchIngestionEvents = async (limit = 50): Promise<IngestionEventRecord[]> => {
+  const { data } = await apiClient.get<ApiResponse<IngestionEventRecord[]>>('/ingestion/events', { params: { limit } });
+  return data.data;
+};
+
+export const fetchIngestionSummary = async (hours = 24): Promise<IngestionSummary> => {
+  const { data } = await apiClient.get<ApiResponse<IngestionSummary>>('/ingestion/summary', { params: { hours } });
+  return data.data;
+};
+
+export const queueReplayWindow = async (payload: {
+  sourceSystem?: string;
+  from: string;
+  to: string;
+  limit?: number;
+}): Promise<{ queuedJobs: number; candidateEvents: number }> => {
+  const { data } = await apiClient.post<ApiResponse<{ queuedJobs: number; candidateEvents: number }>>('/ingestion/replay', payload);
+  return data.data;
+};
+
+export const fetchReplayJobs = async (limit = 50): Promise<ReplayJob[]> => {
+  const { data } = await apiClient.get<ApiResponse<ReplayJob[]>>('/ingestion/replay/jobs', { params: { limit } });
+  return data.data;
+};
+
+export const runReplayJob = async (jobId: string): Promise<void> => {
+  await apiClient.post(`/ingestion/replay/jobs/${jobId}/run`);
+};
+
+export const createComplianceSnapshot = async (periodStart: string, periodEnd: string): Promise<ComplianceSnapshot> => {
+  const { data } = await apiClient.post<ApiResponse<ComplianceSnapshot>>('/reports/compliance/snapshots', { periodStart, periodEnd });
+  return data.data;
+};
+
+export const fetchComplianceSnapshots = async (limit = 50): Promise<ComplianceSnapshot[]> => {
+  const { data } = await apiClient.get<ApiResponse<ComplianceSnapshot[]>>('/reports/compliance/snapshots', { params: { limit } });
+  return data.data;
+};
+
+export const createComplianceSchedule = async (payload: {
+  name: string;
+  frequency: 'daily' | 'weekly' | 'monthly';
+  hourUtc?: number;
+  dayOfWeekUtc?: number;
+  dayOfMonthUtc?: number;
+  recipients?: string[];
+}): Promise<ComplianceSchedule> => {
+  const { data } = await apiClient.post<ApiResponse<ComplianceSchedule>>('/reports/compliance/schedules', payload);
+  return data.data;
+};
+
+export const fetchComplianceSchedules = async (): Promise<ComplianceSchedule[]> => {
+  const { data } = await apiClient.get<ApiResponse<ComplianceSchedule[]>>('/reports/compliance/schedules');
   return data.data;
 };
 

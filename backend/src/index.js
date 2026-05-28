@@ -50,7 +50,12 @@ async function start() {
   });
 
   // ── 4. Start HTTP server immediately ──────────────────────
-  await new Promise((resolve) => server.listen(config.app.port, resolve));
+  await new Promise((resolve, reject) => {
+    server.listen(config.app.port, (err) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
 
   logger.info(
     { port: config.app.port, env: config.app.env },

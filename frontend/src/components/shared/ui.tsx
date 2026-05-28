@@ -43,15 +43,19 @@ export function Panel({ children, className }: PanelProps) {
 
 interface PanelHeaderProps {
   title: React.ReactNode;
+  subtitle?: React.ReactNode;
   action?: React.ReactNode;
   icon?: React.ReactNode;
 }
-export function PanelHeader({ title, action, icon }: PanelHeaderProps) {
+export function PanelHeader({ title, subtitle, action, icon }: PanelHeaderProps) {
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(255,255,255,0.07)]">
-      <div className="flex items-center gap-2 text-sm font-semibold text-gt-text font-display">
-        {icon && <span className="text-gt-muted">{icon}</span>}
-        {title}
+      <div>
+        <div className="flex items-center gap-2 text-sm font-semibold text-gt-text font-display">
+          {icon && <span className="text-gt-muted">{icon}</span>}
+          {title}
+        </div>
+        {subtitle && <p className="text-xs text-gt-muted mt-1">{subtitle}</p>}
       </div>
       {action && <div className="text-[11px] font-mono text-gt-accent">{action}</div>}
     </div>

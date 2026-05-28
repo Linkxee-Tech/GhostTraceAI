@@ -22,18 +22,52 @@ function validateConfig() {
   }
 }
 
-// Only validate in non-test environments
-if (process.env.NODE_ENV !== 'test') {
+function validateProductionSecrets() {
+  const suspicious = [];
+  const secretChecks = [
+    { key: 'JWT_SECRET', bad: ['your-', 'dev-secret', 'change-in-prod', 'test-secret'] },
+    { key: 'MCP_AUTH_SECRET', bad: ['your-', 'test-', 'dev-'] },
+    { key: 'GOOGLE_API_KEY', bad: ['AIza...'] },
+    { key: 'WEBHOOK_SIGNING_SECRET', bad: ['your-webhook-signing-secret'] },
+  ];
+  for (const check of secretChecks) {
+    const value = String(process.env[check.key] || '').toLowerCase();
+    if (!value) continue;
+    if (check.bad.some((token) => value.includes(token))) suspicious.push(check.key);
+  }
+  if (suspicious.length > 0) {
+    throw new Error(`Unsafe placeholder secrets detected for: ${suspicious.join(', ')}. Rotate and set real secrets before deploy.`);
+  }
+}
+
+// Production-only strict validation
+if (process.env.NODE_ENV === 'production') {
+  // In production we require all critical secrets and safe CORS settings.
   validateConfig();
 
   // Security guard: do not allow bypassing auth in production
-  if (process.env.BYPASS_AUTH === 'true' && process.env.NODE_ENV === 'production') {
+  if (process.env.BYPASS_AUTH === 'true') {
     throw new Error('BYPASS_AUTH cannot be enabled in production. Set BYPASS_AUTH=false and configure real auth.');
   }
 
   const corsOrigins = (process.env.CORS_ORIGINS || '').split(',').map((origin) => origin.trim()).filter(Boolean);
-  if (process.env.NODE_ENV === 'production' && corsOrigins.some((origin) => /localhost|127\.0\.0\.1/i.test(origin))) {
+  if (corsOrigins.some((origin) => /localhost|127\.0\.0\.1/i.test(origin))) {
     throw new Error('CORS_ORIGINS contains localhost in production. Set it to your deployed frontend origin(s).');
+  }
+
+  validateProductionSecrets();
+
+} else if (process.env.NODE_ENV !== 'test') {
+  // Developer-friendly warnings for non-production environments.
+  const missing = REQUIRED_VARS.filter((v) => !process.env[v]);
+  if (missing.length > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(`GhostTrace dev startup: missing environment vars: ${missing.join(', ')}. Copy .env.example to .env for a proper dev environment.`);
+  }
+
+  if (process.env.BYPASS_AUTH === 'true') {
+    // eslint-disable-next-line no-console
+    console.warn('BYPASS_AUTH is enabled in non-production. This is only for local development. Do NOT enable in shared/staging environments.');
   }
 }
 

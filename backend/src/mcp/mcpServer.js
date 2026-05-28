@@ -4,9 +4,8 @@ const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js');
 const { z } = require('zod');
 const Transaction = require('../db/schemas/Transaction');
-const { FraudAlert, AuditLog, AgentAction } = require('../db/schemas/Fraud');
+const { FraudAlert, AuditLog } = require('../db/schemas/Fraud');
 const vectorService = require('../services/vectorService');
-const config = require('../config');
 const logger = require('../utils/logger').forModule('mcpServer');
 
 /**

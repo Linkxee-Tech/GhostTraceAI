@@ -24,13 +24,16 @@ export function getDashboardPath(type: DashboardType): string {
   return '/dashboard';
 }
 
-export function resolveDashboardType(user: Pick<UserAccount, 'role' | 'email'>): DashboardType {
+export function resolveDashboardType(user: Pick<UserAccount, 'role' | 'email' | 'accountType'>): DashboardType {
+  if (user.accountType === 'admin') return 'admin';
+  if (user.accountType === 'demo') return 'demo';
+  if (user.accountType === 'user') return 'user';
   if (user.role === 'admin') return 'admin';
   if ((user.email || '').toLowerCase().includes('demo')) return 'demo';
   return 'user';
 }
 
-export function persistSession(token: string, user?: Pick<UserAccount, 'role' | 'email'>): void {
+export function persistSession(token: string, user?: Pick<UserAccount, 'role' | 'email' | 'accountType'>): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(AUTH_TOKEN_KEY, token);
   if (user) {
@@ -72,4 +75,3 @@ export function getWebSocketUrl(): string {
 
   return `${protocol}//${host}`;
 }
-

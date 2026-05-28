@@ -34,6 +34,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const authTimeout = window.setTimeout(() => {
       if (!cancelled) {
         setAuthError('Session verification timed out. Check API connectivity.');
+        clearSession();
+        router.replace('/login');
       }
     }, 10000);
 
@@ -65,9 +67,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (window.innerWidth >= 1024) {
-      setSidebarOpen(true);
-    }
+    setSidebarOpen(window.innerWidth >= 1024);
+    const handleResize = () => setSidebarOpen(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, [setSidebarOpen]);
 
   useWebSocket(
@@ -81,7 +84,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     authChecked
   );
 
-  useDemoData(authChecked && !wsConnected);
+  const isDemoUser =
+    currentUser?.accountType === 'demo' ||
+    (currentUser?.email || '').toLowerCase().includes('demo');
+  useDemoData(authChecked && (isDemoUser || !wsConnected));
 
   useEffect(() => {
     let cancelled = false;
@@ -129,7 +135,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const adminOnlyRoutes = ['/admin', '/users', '/models', '/settings', '/audit-logs'];
+  const adminOnlyRoutes = ['/admin', '/users', '/models', '/settings', '/audit-logs', '/ingestion'];
   const isAdminOnly = adminOnlyRoutes.includes(router.pathname);
 
   if (isAdminOnly && currentUser?.role !== 'admin') {

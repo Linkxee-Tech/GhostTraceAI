@@ -2,7 +2,6 @@
 
 const Transaction  = require('../db/schemas/Transaction');
 const { FraudAlert, AgentAction } = require('../db/schemas/Fraud');
-const logger = require('../utils/logger').forModule('statsService');
 
 /**
  * Compute dashboard stats. Results are lightweight aggregations

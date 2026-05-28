@@ -181,7 +181,10 @@ export default function AlertsPage() {
   const [statusFilter,   setStatusFilter]   = useState('open');
 
   // Store-seeded demo data as fallback
-  const { activeAlerts: storeAlerts } = useStore();
+  const { activeAlerts: storeAlerts, currentUser } = useStore();
+  const isDemoUser =
+    currentUser?.accountType === 'demo' ||
+    (currentUser?.email || '').toLowerCase().includes('demo');
 
   const { data, isLoading, mutate } = useSWR(
     ['alerts', severityFilter, statusFilter],
@@ -191,13 +194,14 @@ export default function AlertsPage() {
 
   // Use API data whenever a response exists (even empty), and only fall back to store when API is unavailable.
   const hasApiResponse = Array.isArray(data?.data);
-  const alerts: FraudAlert[] = hasApiResponse
-    ? data!.data
-    : storeAlerts.filter((a) => {
+  const fallbackAlerts = storeAlerts.filter((a) => {
         const matchSeverity = !severityFilter || a.severity === severityFilter;
         const matchStatus   = !statusFilter   || a.status   === statusFilter;
         return matchSeverity && matchStatus;
       });
+  const alerts: FraudAlert[] = isDemoUser
+    ? fallbackAlerts
+    : (hasApiResponse ? data!.data : fallbackAlerts);
 
   return (
     <div className="flex flex-col gap-4">
@@ -205,7 +209,11 @@ export default function AlertsPage() {
         <PanelHeader
           title={`Fraud Alerts (${alerts.length})`}
           icon={<ShieldAlert size={15} />}
-          action={<span className={isLoading ? 'text-gt-muted' : 'text-gt-accent'}>{isLoading ? 'SYNCING…' : 'LIVE'}</span>}
+          action={
+            <span className={isDemoUser ? 'text-gt-warn' : (isLoading ? 'text-gt-muted' : 'text-gt-accent')}>
+              {isDemoUser ? 'DEMO MODE' : (isLoading ? 'SYNCING…' : 'LIVE')}
+            </span>
+          }
         />
 
         {/* Filter bar */}

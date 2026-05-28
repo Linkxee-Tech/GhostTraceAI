@@ -23,6 +23,7 @@ const statsRoutes       = require('./api/routes/stats');
 const auditRoutes       = require('./api/routes/audit');
 const ingestionRoutes   = require('./api/routes/ingestion');
 const publicIntegrationRoutes = require('./api/routes/publicIntegration');
+const reportsRoutes = require('./api/routes/reports');
 
 // Avoid 10s+ hidden hangs when MongoDB is unavailable.
 // Routes should fail fast so the frontend can show explicit fallback states.
@@ -99,6 +100,7 @@ function createApp() {
   app.use('/api/v1/watchlist',    require('./api/routes/watchlist'));
   app.use('/api/v1/rules',        require('./api/routes/rules'));
   app.use('/api/v1/settings',     require('./api/routes/settings'));
+  app.use('/api/v1/reports',      reportsRoutes);
   app.use('/api/v1',              statsRoutes);   // /health and /stats
 
   // Compatibility aliases for partner integrations using /api/* style routes.

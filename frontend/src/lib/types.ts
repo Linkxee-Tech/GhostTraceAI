@@ -255,3 +255,51 @@ export interface GeneralSettings {
     testedBy: string;
   }>;
 }
+
+export interface IngestionEventRecord {
+  ingestId: string;
+  sourceSystem: string;
+  sourceType: 'api' | 'webhook' | 'simulate' | 'batch';
+  externalEventId: string;
+  processingStatus: 'accepted' | 'rejected' | 'duplicate' | 'failed';
+  rejectionReason?: string;
+  normalizedTxnId?: string;
+  receivedAt: string;
+}
+
+export interface IngestionSummary {
+  windowHours: number;
+  statusStats: Array<{ _id: string; count: number }>;
+  sourceStats: Array<{ _id: string; count: number }>;
+  recentFailures: IngestionEventRecord[];
+}
+
+export interface ReplayJob {
+  jobId: string;
+  jobType: 'agent_process' | 'event_replay';
+  sourceSystem?: string;
+  ingestId?: string;
+  txnId?: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'dead_letter';
+  attempts: number;
+  maxAttempts: number;
+  lastError?: string;
+  createdAt: string;
+}
+
+export interface ComplianceSnapshot {
+  snapshotId: string;
+  periodStart: string;
+  periodEnd: string;
+  checksum: string;
+  createdAt: string;
+}
+
+export interface ComplianceSchedule {
+  scheduleId: string;
+  name: string;
+  frequency: 'daily' | 'weekly' | 'monthly';
+  enabled: boolean;
+  nextRunAt?: string;
+  createdAt: string;
+}

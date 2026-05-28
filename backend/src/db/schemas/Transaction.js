@@ -148,7 +148,7 @@ TransactionSchema.index({ 'device.fingerprint': 1, createdAt: -1 });
 // For geo anomaly analysis
 TransactionSchema.index({ 'geo.country': 1, accountId: 1 });
 // Text index for search
-TransactionSchema.index({ 'merchant.name': 'text', txnId: 'text' });
+TransactionSchema.index({ 'merchant.name': 'text', txnId: 'text', accountId: 'text', sourceSystem: 'text' });
 TransactionSchema.index({ sourceSystem: 1, createdAt: -1 });
 
 // TTL: archive processed, non-flagged transactions after 90 days

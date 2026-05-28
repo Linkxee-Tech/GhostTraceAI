@@ -70,43 +70,62 @@ function validateCanonicalEvent(event) {
 }
 
 async function ingestEvent({ payload, sourceType, sourceSystem, externalEventId, requestMeta }) {
-  const normalized = normalizeTransactionEvent(payload, {
-    sourceSystem,
-    channel: payload.channel,
-    userAgent: requestMeta?.userAgent,
-  });
-  const payloadHash = sha256(JSON.stringify(payload || {}));
-  validateCanonicalEvent(normalized);
   const ingestId = `ING-${uuidv4().slice(0, 10).toUpperCase()}`;
-  const eventId = externalEventId || payload.eventId || normalized.txnId;
+  const payloadHash = sha256(JSON.stringify(payload || {}));
+  let normalized = null;
+  let eventId = externalEventId || payload?.eventId;
+  try {
+    normalized = normalizeTransactionEvent(payload, {
+      sourceSystem,
+      channel: payload.channel,
+      userAgent: requestMeta?.userAgent,
+    });
+    validateCanonicalEvent(normalized);
+    eventId = eventId || normalized.txnId;
 
-  const existing = await IngestionEvent.findOne({ sourceSystem, externalEventId: eventId }).lean();
-  if (existing) {
-    return { status: 'duplicate', normalizedTxnId: existing.normalizedTxnId, ingestId: existing.ingestId };
+    const existing = await IngestionEvent.findOne({ sourceSystem, externalEventId: eventId }).lean();
+    if (existing) {
+      return { status: 'duplicate', normalizedTxnId: existing.normalizedTxnId, ingestId: existing.ingestId };
+    }
+
+    const txn = await Transaction.findOneAndUpdate(
+      { txnId: normalized.txnId },
+      { $setOnInsert: normalized },
+      { new: true, upsert: true }
+    );
+
+    await IngestionEvent.create({
+      ingestId,
+      sourceSystem,
+      sourceType,
+      externalEventId: eventId,
+      externalTransactionId: payload.transactionId || normalized.txnId,
+      payloadHash,
+      processingStatus: 'accepted',
+      normalizedTxnId: txn.txnId,
+      channel: normalized.channel,
+      requestMeta,
+      processedAt: new Date(),
+      rawPayload: payload,
+    });
+
+    return { status: 'accepted', normalizedTxnId: txn.txnId, ingestId };
+  } catch (err) {
+    await IngestionEvent.create({
+      ingestId,
+      sourceSystem: sourceSystem || 'unknown',
+      sourceType,
+      externalEventId: eventId || `invalid-${ingestId}`,
+      externalTransactionId: payload?.transactionId,
+      payloadHash,
+      processingStatus: 'rejected',
+      rejectionReason: err.message,
+      requestMeta,
+      processedAt: new Date(),
+      rawPayload: payload,
+    }).catch(() => {});
+    throw err;
   }
-
-  const txn = await Transaction.findOneAndUpdate(
-    { txnId: normalized.txnId },
-    { $setOnInsert: normalized },
-    { new: true, upsert: true }
-  );
-
-  await IngestionEvent.create({
-    ingestId,
-    sourceSystem,
-    sourceType,
-    externalEventId: eventId,
-    externalTransactionId: payload.transactionId || normalized.txnId,
-    payloadHash,
-    processingStatus: 'accepted',
-    normalizedTxnId: txn.txnId,
-    channel: normalized.channel,
-    requestMeta,
-    processedAt: new Date(),
-    rawPayload: payload,
-  });
-
-  return { status: 'accepted', normalizedTxnId: txn.txnId, ingestId };
 }
 
 module.exports = { normalizeTransactionEvent, ingestEvent };

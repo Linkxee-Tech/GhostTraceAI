@@ -3,16 +3,20 @@
 const { v4: uuidv4 } = require('uuid');
 const Transaction = require('./schemas/Transaction');
 const { AuditLog } = require('./schemas/Fraud');
+const ProcessingQueueJob = require('./schemas/ProcessingQueueJob');
 const logger = require('../utils/logger').forModule('changeStream');
 const config = require('../config');
 
 const RECONNECT_DELAY_MS = 3000;
 const MAX_RECONNECT_ATTEMPTS = 10;
+const POLL_INTERVAL_MS = 10000;
 
 let streamInstance = null;
 let isRunning = false;
 let reconnectAttempts = 0;
 let onTransactionCallback = null;
+let queueWorkerInterval = null;
+let pollWorkerInterval = null;
 
 /**
  * Build the change stream pipeline.
@@ -94,10 +98,117 @@ async function handleChangeEvent(change) {
   if (onTransactionCallback) {
     try {
       await onTransactionCallback(doc);
+      await ProcessingQueueJob.updateMany(
+        { txnId: doc.txnId, status: { $in: ['pending', 'failed', 'processing'] }, jobType: 'agent_process' },
+        { $set: { status: 'completed', completedAt: new Date() } }
+      );
     } catch (err) {
       logger.error({ err, txnId: doc.txnId }, 'Agent callback failed');
+      await enqueueFailedAgentJob(doc, `agent_callback_failed:${err.message}`);
     }
   }
+}
+
+async function enqueueFailedAgentJob(doc, message) {
+  const existing = await ProcessingQueueJob.findOne({
+    txnId: doc.txnId,
+    jobType: 'agent_process',
+    status: { $in: ['pending', 'processing', 'failed'] },
+  });
+  if (existing) return;
+  await ProcessingQueueJob.create({
+    jobId: `JOB-${uuidv4().slice(0, 10).toUpperCase()}`,
+    jobType: 'agent_process',
+    source: 'change_stream',
+    txnId: doc.txnId,
+    sourceSystem: doc.sourceSystem || 'unknown',
+    payload: doc,
+    status: 'pending',
+    attempts: 0,
+    maxAttempts: 5,
+    nextAttemptAt: new Date(Date.now() + 15 * 1000),
+    lastError: message,
+  });
+}
+
+async function processQueueJobs() {
+  if (!onTransactionCallback) return;
+  const jobs = await ProcessingQueueJob.find({
+    status: { $in: ['pending', 'failed'] },
+    nextAttemptAt: { $lte: new Date() },
+  })
+    .sort({ createdAt: 1 })
+    .limit(20);
+
+  for (const job of jobs) {
+    try {
+      job.status = 'processing';
+      job.attempts += 1;
+      await job.save();
+      await onTransactionCallback(job.payload);
+      job.status = 'completed';
+      job.completedAt = new Date();
+      job.lastError = undefined;
+      await job.save();
+    } catch (err) {
+      const dead = job.attempts >= job.maxAttempts;
+      job.status = dead ? 'dead_letter' : 'failed';
+      job.lastError = err.message;
+      const backoffMs = Math.min(60000, 5000 * job.attempts);
+      job.nextAttemptAt = new Date(Date.now() + backoffMs);
+      await job.save();
+
+      await AuditLog.create({
+        auditId: uuidv4(),
+        eventType: 'stream_error',
+        txnId: job.txnId,
+        accountId: job.payload?.accountId,
+        actorType: 'system',
+        action: dead ? 'queue_dead_letter' : 'queue_retry_scheduled',
+        details: { jobId: job.jobId, attempts: job.attempts, maxAttempts: job.maxAttempts },
+        success: false,
+        errorMessage: err.message,
+      }).catch(() => {});
+    }
+  }
+}
+
+async function processPendingTransactions() {
+  if (!onTransactionCallback) return;
+  const pending = await Transaction.find({ agentProcessed: false, status: 'pending' })
+    .sort({ createdAt: 1 })
+    .limit(20)
+    .lean();
+
+  if (!pending.length) return;
+  logger.info({ count: pending.length }, 'Polling pending transactions for processing');
+
+  for (const txn of pending) {
+    try {
+      await onTransactionCallback(txn);
+    } catch (err) {
+      logger.error({ err, txnId: txn.txnId }, 'Polling fallback transaction processing failed');
+      await enqueueFailedAgentJob(txn, `poll_fallback_failed:${err.message}`);
+    }
+  }
+}
+
+function isChangeStreamUnsupported(err) {
+  const message = String(err?.message || '').toLowerCase();
+  return message.includes('change stream') && (message.includes('replica set') || message.includes('not supported') || message.includes('not a replica set'));
+}
+
+function startPollingPendingTransactions() {
+  if (pollWorkerInterval) return;
+  pollWorkerInterval = setInterval(() => {
+    processPendingTransactions().catch((err) => logger.error({ err }, 'Pending transaction poll failed'));
+  }, POLL_INTERVAL_MS);
+}
+
+function stopPollingPendingTransactions() {
+  if (!pollWorkerInterval) return;
+  clearInterval(pollWorkerInterval);
+  pollWorkerInterval = null;
 }
 
 /**
@@ -115,6 +226,11 @@ async function startChangeStream(callback) {
   reconnectAttempts = 0;
 
   await openStream();
+  if (!queueWorkerInterval) {
+    queueWorkerInterval = setInterval(() => {
+      processQueueJobs().catch((err) => logger.error({ err }, 'Queue worker failure'));
+    }, 10000);
+  }
 }
 
 async function openStream() {
@@ -147,6 +263,11 @@ async function openStream() {
     logger.info('MongoDB change stream started successfully');
   } catch (err) {
     logger.error({ err }, 'Failed to open change stream');
+    if (isChangeStreamUnsupported(err)) {
+      logger.warn('MongoDB change streams are unsupported by this server. Enabling polling fallback to process pending transactions.');
+      startPollingPendingTransactions();
+      return;
+    }
     await reconnect();
   }
 }
@@ -174,6 +295,11 @@ async function reconnect() {
 
 async function stopChangeStream() {
   isRunning = false;
+  if (queueWorkerInterval) {
+    clearInterval(queueWorkerInterval);
+    queueWorkerInterval = null;
+  }
+  stopPollingPendingTransactions();
   if (streamInstance) {
     await streamInstance.close();
     streamInstance = null;

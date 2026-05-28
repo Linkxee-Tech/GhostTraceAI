@@ -46,7 +46,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { token, user } = await login('demo@ghosttrace.ai', 'demo-password');
+      const { token, user } = await login('demo@ghosttrace.ai', 'demo');
       persistSession(token, user);
       router.push('/mfa-verify');
     } catch {

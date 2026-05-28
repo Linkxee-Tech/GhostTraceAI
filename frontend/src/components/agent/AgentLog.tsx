@@ -90,11 +90,11 @@ export function AgentActionsLog({ limit = 8 }: { limit?: number }) {
       <div>
         {agentActions.length === 0
           ? <EmptyState message="No actions executed yet" />
-          : agentActions.slice(0, limit).map((action) => {
+          : agentActions.slice(0, limit).map((action, index) => {
               const cfg = ACTION_CONFIG[action.actionType as ActionType] ?? ACTION_CONFIG.flag;
               return (
                 <div
-                  key={action.actionId}
+                  key={`${action.actionId}-${index}`}
                   className="flex items-start gap-3 px-4 py-2.5 border-b border-[rgba(255,255,255,0.05)] animate-slide-in"
                 >
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${cfg.bg}`}>

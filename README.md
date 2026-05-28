@@ -173,7 +173,27 @@ npm run dev:backend   # http://localhost:3001
 npm run dev:frontend  # http://localhost:3000
 ```
 
-### 4. Seed demo data (optional)
+### 4. Fast local development with safe defaults
+
+If you want a quick local demo without requiring full production secrets, set these values in `backend/.env`:
+
+```bash
+NODE_ENV=development
+PORT=3001
+CORS_ORIGINS=http://localhost:3000
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DB_NAME=ghosttrace
+BYPASS_AUTH=true
+JWT_SECRET=dev-secret
+MCP_AUTH_SECRET=dev-mcp-secret
+GOOGLE_API_KEY=
+```
+
+The backend will warn about missing AI credentials in dev mode but still run and use the rule-based Gemini fallback.
+
+> Note: `BYPASS_AUTH=true` is only safe for local development. Keep it disabled in any shared or production environment.
+
+### 5. Seed demo data (optional)
 
 ```bash
 npm run seed

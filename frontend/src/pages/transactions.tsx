@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Panel, PanelHeader, Badge, RiskBar, EmptyState, Spinner } from '@/components/shared/ui';
 import { fetchTransactions } from '@/lib/api';
 import { useStore } from '@/lib/store';
 import { STATUS_STYLES, formatAmount, formatRelativeTime, maskAccountId, getRiskColor } from '@/lib/utils';
 import type { Transaction } from '@/lib/types';
-import { ArrowLeftRight, Filter, X } from 'lucide-react';
+import { ArrowLeftRight, Filter, Search, X } from 'lucide-react';
 import useSWR from 'swr';
 
 const STATUS_FILTERS = [
@@ -179,14 +179,29 @@ function TransactionDetailDrawer({ txn, onClose }: { txn: Transaction; onClose: 
 export default function TransactionsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage]                 = useState(1);
+  const [searchQuery, setSearchQuery]   = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedTxn, setSelectedTxn]   = useState<Transaction | null>(null);
 
   // Store access for offline fallback and selectedTxnId highlighting
-  const { liveTransactions, selectedTxnId } = useStore();
+  const { liveTransactions, selectedTxnId, currentUser } = useStore();
+  const isDemoUser =
+    currentUser?.accountType === 'demo' ||
+    (currentUser?.email || '').toLowerCase().includes('demo');
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedQuery(searchQuery.trim()), 300);
+    return () => window.clearTimeout(timeout);
+  }, [searchQuery]);
 
   const { data, isLoading } = useSWR(
-    ['transactions', statusFilter, page],
-    () => fetchTransactions({ page, limit: 20, status: statusFilter || undefined }),
+    ['transactions', statusFilter, debouncedQuery, page],
+    () => fetchTransactions({
+      page,
+      limit: 20,
+      status: statusFilter || undefined,
+      query: debouncedQuery || undefined,
+    }),
     { refreshInterval: 5000, revalidateOnFocus: false }
   );
 
@@ -201,9 +216,9 @@ export default function TransactionsPage() {
     return t.status === statusFilter;
   });
 
-  const transactions  = hasApiResponse ? apiTransactions : storeTransactions;
-  const displayTotal  = hasApiResponse ? total : storeTransactions.length;
-  const isOffline     = !isLoading && !hasApiResponse && storeTransactions.length > 0;
+  const transactions  = isDemoUser ? storeTransactions : (hasApiResponse ? apiTransactions : storeTransactions);
+  const displayTotal  = isDemoUser ? storeTransactions.length : (hasApiResponse ? total : storeTransactions.length);
+  const isOffline     = isDemoUser || (!isLoading && !hasApiResponse && storeTransactions.length > 0);
 
   // Open drawer for a txn that was navigated to from the feed
   React.useEffect(() => {
@@ -227,23 +242,46 @@ export default function TransactionsPage() {
         />
 
         {/* Filter bar */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-[rgba(255,255,255,0.05)]">
-          <Filter size={13} className="text-gt-muted flex-shrink-0" aria-hidden="true" />
-          <div className="flex gap-1 flex-wrap" role="group" aria-label="Filter by status">
-            {STATUS_FILTERS.map((f) => (
-              <button
-                key={f.value}
-                onClick={() => { setStatusFilter(f.value); setPage(1); }}
-                aria-pressed={statusFilter === f.value}
-                className={`px-3 py-1 text-[11px] font-mono rounded transition-colors border ${
-                  statusFilter === f.value
-                    ? 'bg-gt-accent/15 text-gt-accent border-gt-accent/30'
-                    : 'text-gt-muted border-[rgba(255,255,255,0.06)] hover:text-gt-text hover:border-[rgba(255,255,255,0.12)]'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
+        <div className="flex flex-col gap-3 px-4 py-3 border-b border-[rgba(255,255,255,0.05)]">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[220px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gt-muted" aria-hidden="true" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                placeholder="Search transaction ID, account, merchant or source…"
+                className="w-full rounded-lg border border-[rgba(255,255,255,0.07)] bg-gt-surface2 px-10 py-2 text-[12px] font-mono text-gt-text placeholder:text-gt-dim focus:border-gt-accent/40 focus:outline-none"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => { setSearchQuery(''); setPage(1); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gt-muted hover:text-gt-text"
+                  aria-label="Clear search"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <div className="flex gap-1 flex-wrap items-center" role="group" aria-label="Filter by status">
+              <Filter size={13} className="text-gt-muted flex-shrink-0" aria-hidden="true" />
+              {STATUS_FILTERS.map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => { setStatusFilter(f.value); setPage(1); }}
+                  aria-pressed={statusFilter === f.value}
+                  className={`px-3 py-1 text-[11px] font-mono rounded transition-colors border ${
+                    statusFilter === f.value
+                      ? 'bg-gt-accent/15 text-gt-accent border-gt-accent/30'
+                      : 'text-gt-muted border-[rgba(255,255,255,0.06)] hover:text-gt-text hover:border-[rgba(255,255,255,0.12)]'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -326,7 +364,7 @@ export default function TransactionsPage() {
         )}
 
         {/* Pagination — only shown when using API data */}
-        {pages > 1 && hasApiResponse && (
+        {pages > 1 && hasApiResponse && !isDemoUser && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-[rgba(255,255,255,0.05)]">
             <span className="text-[11px] font-mono text-gt-muted">
               Page {page} of {pages} · {total.toLocaleString()} total
