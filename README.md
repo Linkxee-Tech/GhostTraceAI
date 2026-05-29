@@ -1,6 +1,8 @@
-# GhostTrace AI 🔍
+# GhostTrace AI
 
-**Autonomous real-time fraud detection and response agent**
+A fraud operations platform that uses MongoDB change streams, Gemini, and a live dashboard to score, review, and act on suspicious transactions.
+
+Autonomous real-time fraud detection and response agent
 Built for the Google Cloud Rapid Agent 2026
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-brightgreen)](https://nodejs.org)
@@ -9,30 +11,27 @@ Built for the Google Cloud Rapid Agent 2026
 
 ## What is GhostTrace AI?
 
-GhostTrace AI is a true autonomous AI agent that:
+GhostTrace AI truely monitors transaction activity, scores fraud risk with a mix of heuristics and model analysis, and updates alerts in a single dashboard.
 
-1. **Monitors** live financial transactions via MongoDB Change Streams
-2. **Reasons** about fraud risk using Gemini 3 with a structured prompt
-3. **Scores** each transaction using velocity, geo-anomaly, device trust, and behavioral drift signals
-4. **Acts** autonomously in the app data model — blocking, flagging, freezing, or escalating are recorded and surfaced in the dashboard, with optional external enforcement integration
-5. **Explains** every decision in plain English for analyst review
-6. **Notifies** admins via Slack and email for critical threats
+1. Track transaction events in real time using MongoDB change streams.
+2. Score transactions with velocity, geo, device, and behavior signals.
+3. Enrich the decision with Gemini analysis and structured output.
+4. Update status, create alerts, and record audit logs.
+5. Notify operators by email or Slack when high-risk activity appears.
 
----
 
 ## MongoDB Partner Track
 
 GhostTrace AI is built specifically for the MongoDB partner track, with deep Atlas integration across the entire fraud lifecycle:
 
-- Real-time ingestion through **MongoDB Atlas Change Streams**
-- Transaction and alert storage in **Atlas clusters**
-- Fraud context enrichment using **Atlas Vector Search**
-- Auditability with immutable **audit_logs** stored in MongoDB
-- Secure production-ready pattern for **Atlas + AI** in a cloud-native agent
+- Real-time ingestion through MongoDB Atlas Change Streams
+- Transaction and alert storage in Atlas clusters
+- Fraud context enrichment using Atlas Vector Search
+- Auditability with immutable audit_logs stored in MongoDB
+- Secure production-ready pattern for Atlas + AI in a cloud-native agent
 
 This project showcases how MongoDB Atlas can power an autonomous fraud agent while delivering the event-driven, highly available data foundation expected by the partner track.
 
----
 
 ## Tech Stack
 
@@ -46,7 +45,6 @@ This project showcases how MongoDB Atlas can power an autonomous fraud agent whi
 | Infrastructure | Google Cloud Run + GCR                               |
 | CI/CD          | GitHub Actions                                       |
 
----
 
 ## Google Cloud Agent Builder
 
@@ -79,11 +77,9 @@ echo -n "your-jwt-secret" | gcloud secrets create jwt-secret --data-file=-
 echo -n "your-mcp-secret" | gcloud secrets create mcp-auth-secret --data-file=-
 ```
 
----
 
 ## Architecture
 
-```
 ┌─────────────────────────────────────────────────────────┐
 │                    GHOSTTRACE AI                        │
 │                                                         │
@@ -118,9 +114,6 @@ echo -n "your-mcp-secret" | gcloud secrets create mcp-auth-secret --data-file=-
 │                           │   Real-time updates   │     │
 │                           └───────────────────────┘     │
 └─────────────────────────────────────────────────────────┘
-```
-
----
 
 ## Quick Start
 
@@ -220,8 +213,6 @@ npm run simulate
 # Options: --rate=2 --fraud-rate=0.3 --url=http://localhost:3001
 ```
 
----
-
 ## API Reference
 
 All endpoints require `Authorization: Bearer <token>` or `X-API-Key: <key>`.
@@ -279,8 +270,6 @@ Connect to `ws://localhost:3001` with Socket.io.
 | `agent:error`        | Server → Client | `{ txnId, error }`                           |
 | `subscribe:account`  | Client → Server | `accountId` string                           |
 
----
-
 ## Running Tests
 
 ```bash
@@ -296,8 +285,6 @@ npm run test:simulation --workspace=backend
 # Integration (API routes)
 npm run test:integration --workspace=backend
 ```
-
----
 
 ## Deployment
 
@@ -325,8 +312,6 @@ echo -n "your-mcp-secret"   | gcloud secrets create mcp-auth-secret --data-file=
 
 3. Push to GitHub → CI/CD deploys automatically on merge to `main`
 
----
-
 ## MCP Integration
 
 GhostTrace uses the Model Context Protocol to give the Gemini agent direct access to MongoDB, including embedding-driven similarity search for transaction history:
@@ -342,8 +327,6 @@ Gemini Agent
     ├── get_similar_fraud_patterns(...)  → Historical fraud matches via transaction embeddings / Atlas vector search
     └── write_agent_finding(txnId, ...)  → Record reasoning step
 ```
-
----
 
 ## Project Structure
 
@@ -377,8 +360,6 @@ ghosttrace-ai/
 │   └── cloudrun-service.yaml
 └── .github/workflows/deploy.yml
 ```
-
----
 
 ## License
 

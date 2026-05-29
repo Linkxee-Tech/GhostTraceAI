@@ -176,8 +176,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gt-bg flex flex-col">
       <Head>
-        <title>GhostTrace AI - Fraud Intelligence Platform</title>
-        <meta name="description" content="Autonomous real-time fraud detection and response agent powered by Gemini AI and MongoDB" />
+        <title>GhostTrace - Fraud Monitoring Dashboard</title>
+        <meta name="description" content="Monitor fraud alerts and transaction risk with Gemini and MongoDB." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
@@ -201,7 +201,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <span className="text-[10px] font-mono text-gt-dim">
           GhostTrace AI v1.0.0 - {currentUser ? `Signed in as ${currentUser.email} (${currentUser.role})` : 'Google Cloud Rapid Agent 2026'}
         </span>
-        <span className="text-[10px] font-mono text-gt-dim">Gemini 3 - MongoDB Atlas - MCP - Cloud Run</span>
+        <span className="text-[10px] font-mono text-gt-dim">Gemini 3 · MongoDB Atlas · MCP · Cloud Run</span>
       </footer>
     </div>
   );

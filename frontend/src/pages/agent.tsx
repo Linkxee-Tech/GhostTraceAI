@@ -44,13 +44,13 @@ function ReasoningStep({
 }
 
 const PIPELINE_STEPS = [
-  { title: 'Change Stream Ingestion',  desc: 'MongoDB change stream captured transaction · sub-1ms trigger latency'  },
-  { title: 'Pre-Score Computation',    desc: 'Velocity, geo, device, behavioral drift scores computed from history'   },
-  { title: 'Gemini Prompt Assembly',   desc: 'Structured prompt built with sandboxed, sanitized transaction data'      },
-  { title: 'AI Fraud Reasoning',       desc: 'Gemini 3 analyzing patterns and generating risk assessment'              },
-  { title: 'Response Validation',      desc: 'JSON schema validation, score clamping, fallback detection'              },
-  { title: 'Action Execution',         desc: 'MongoDB updated atomically · audit log written · alert created'          },
-  { title: 'Notification & Broadcast', desc: 'WebSocket push to dashboard · Slack/email alert if threshold exceeded'   },
+  { title: 'Change stream ingestion', desc: 'Transaction event captured from MongoDB.' },
+  { title: 'Pre-score computation',   desc: 'Velocity, geo, device and behavior risk signals are calculated.' },
+  { title: 'Prompt assembly',        desc: 'Transaction data is prepared and validated.' },
+  { title: 'Risk reasoning',         desc: 'Gemini 3 evaluates fraud indicators and scores the transaction.' },
+  { title: 'Response validation',    desc: 'The analysis output is checked and fallback logic is applied.' },
+  { title: 'Action execution',       desc: 'The result is written back and alerts are created when needed.' },
+  { title: 'Notifications',          desc: 'Dashboard and alert channels are updated in real time.' },
 ];
 
 export default function AgentPage() {
@@ -106,7 +106,7 @@ export default function AgentPage() {
         {/* Reasoning Pipeline */}
         <Panel>
           <PanelHeader
-            title="Active Reasoning Pipeline"
+            title="Analysis pipeline"
             icon={<Brain size={15} />}
             action={
               pipelineStage >= 0 ? (

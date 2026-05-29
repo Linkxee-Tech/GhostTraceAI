@@ -106,7 +106,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(255,255,255,0.07)]">
           <div>
             <h2 className="text-[15px] font-bold font-display text-gt-text">Settings</h2>
-            <p className="text-[11px] font-mono text-gt-muted">Agent · Alerts · Display</p>
+            <p className="text-[11px] font-mono text-gt-muted">Rules · Alerts · Display</p>
           </div>
           <button
             onClick={onClose}
@@ -148,7 +148,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           {activeTab === 'thresholds' && (
             <div className="flex flex-col gap-6">
               <div className="bg-gt-surface2 rounded-lg px-4 py-3 text-[11px] font-mono text-gt-muted border border-[rgba(255,255,255,0.06)]">
-                ⚙ Adjust fraud score thresholds that control autonomous agent actions.
+                ⚙ Adjust fraud score thresholds for automated actions.
               </div>
               <SliderRow
                 label="Auto-Block Threshold" description="Transactions above this score are automatically blocked"
@@ -245,7 +245,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 </div>
               </div>
               {[
-                ['AI Engine',      'Gemini 3'],
+                ['Inference engine', 'Gemini 3'],
                 ['Database',       'MongoDB Atlas'],
                 ['Integration',    'MCP (Model Context Protocol)'],
                 ['Infrastructure', 'Google Cloud Run'],

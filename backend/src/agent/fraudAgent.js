@@ -30,11 +30,11 @@ async function auditEvent(eventType, txnId, accountId, details = {}, success = t
 }
 
 /**
- * Agent lifecycle: Plan → Reason → Act
+ * Agent lifecycle: prepare, analyze, act.
  *
- * PLAN:   Compute pre-scores from MongoDB (velocity, geo, device, behavior)
- * REASON: Call Gemini with full context → get fraud score + explanation
- * ACT:    Execute the recommended action (block/flag/clear/escalate)
+ * 1. compute risk factors
+ * 2. analyze with the fraud model
+ * 3. apply the chosen action
  */
 async function processTransaction(txn, broadcastFn) {
   // Guard: skip if already in-flight
@@ -62,8 +62,7 @@ async function processTransaction(txn, broadcastFn) {
 
     lockAcquired = true;
 
-    logger.info({ txnId: txn.txnId, accountId: txn.accountId, amount: txn.amount },
-      '── Agent pipeline started ──');
+    logger.info({ txnId: txn.txnId, accountId: txn.accountId, amount: txn.amount }, 'Agent pipeline started');
 
     await auditEvent('agent_reasoning_start', txn.txnId, txn.accountId);
 
@@ -138,7 +137,7 @@ async function processTransaction(txn, broadcastFn) {
       broadcastFn('agent:reasoning', {
         txnId: txn.txnId,
         stage: 'reasoning',
-        message: 'Gemini analyzing fraud patterns...',
+        message: 'Analyzing fraud risk...',
         preScore: quickPreScore?.preScore,
       });
     }
@@ -169,7 +168,7 @@ async function processTransaction(txn, broadcastFn) {
       confidence: analysisResult.confidence,
       action: analysisResult.recommendedAction,
       fallbackUsed: analysisResult.fallbackUsed,
-    }, '── Gemini reasoning complete ──');
+    }, 'Reasoning complete');
 
     // ── PHASE 3: ACT ───────────────────────────────────────
     if (broadcastFn) {
@@ -195,7 +194,7 @@ async function processTransaction(txn, broadcastFn) {
       totalLatencyMs,
       action: actionResult.action,
       fraudScore: analysisResult.fraudScore,
-    }, '── Agent pipeline complete ──');
+    }, 'Agent pipeline complete');
 
     return {
       action: actionResult.action,
