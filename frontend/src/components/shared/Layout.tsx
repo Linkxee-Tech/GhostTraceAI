@@ -15,7 +15,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const {
     wsConnected, setWsConnected, setStats, setActiveAlerts,
     setActiveTab, currentUser, setCurrentUser,
-    setSidebarOpen,
+    sidebarOpen, setSidebarOpen,
   } = useStore();
 
   const [authChecked, setAuthChecked] = useState(false);
@@ -73,6 +73,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('resize', handleResize);
   }, [setSidebarOpen]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const collapseOnMobileRouteChange = () => {
+      if (window.innerWidth < 1024) setSidebarOpen(false);
+    };
+    collapseOnMobileRouteChange();
+  }, [router.pathname, setSidebarOpen]);
+
   useWebSocket(
     {
       onConnected: () => setWsConnected(true),
@@ -88,6 +96,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     currentUser?.accountType === 'demo' ||
     (currentUser?.email || '').toLowerCase().includes('demo');
   useDemoData(authChecked && (isDemoUser || !wsConnected));
+
+  const collapseSidebarOnMobile = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -168,9 +182,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </Head>
 
       <Sidebar />
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/20 lg:hidden"
+          onClick={collapseSidebarOnMobile}
+          aria-hidden="true"
+        />
+      )}
       <Header />
 
-      <main className="flex-1 relative z-0">
+      <main className="flex-1 relative z-0" onClick={collapseSidebarOnMobile}>
         <div className="px-6 py-5">
           {children}
         </div>
