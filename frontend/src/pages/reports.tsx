@@ -57,6 +57,29 @@ const REPORTS: ReportDef[] = [
   },
 ];
 
+const REPORT_SAMPLES: Record<string, string[]> = {
+  'fraud-summary': [
+    'Summary of prevented fraud cases, recovered revenue, and emerging threat trends.',
+    'Top flagged accounts and incident breakdown by severity.',
+    'Executive-ready KPI snapshot for risk and operations teams.',
+  ],
+  'analyst-productivity': [
+    'Case resolution metrics and agent responsiveness summary.',
+    'False-positive rate trends and analyst workload distribution.',
+    'Time-to-resolution benchmarks for ongoing investigations.',
+  ],
+  'risk-compliance': [
+    'Regulatory compliance scorecards and audit log summaries.',
+    'Highest-risk accounts and controls coverage details.',
+    'Policy enforcement status and recent review findings.',
+  ],
+  'threat-intelligence': [
+    'Export of flagged transactions, suspicious IPs, and device signals.',
+    'Threat feed of top fraud patterns and risk correlations.',
+    'Actionable data for downstream analysis and blocking rules.',
+  ],
+};
+
 export default function ReportsPage() {
   const [generating, setGenerating] = useState<string | null>(null);
   const { currentUser, liveTransactions, activeAlerts } = useStore();
@@ -72,6 +95,7 @@ export default function ReportsPage() {
   const { data: replayJobs, mutate: reloadReplayJobs } = useSWR('replay-jobs', () => fetchReplayJobs(50));
   const { data: complianceSnapshots, mutate: reloadSnapshots } = useSWR('compliance-snapshots', () => fetchComplianceSnapshots(20));
   const { data: complianceSchedules, mutate: reloadSchedules } = useSWR('compliance-schedules', fetchComplianceSchedules);
+  const canManageCompliance = currentUser?.role === 'admin';
 
   const handleGenerate = async (report: ReportDef) => {
     setGenerating(report.id);
@@ -163,11 +187,16 @@ export default function ReportsPage() {
 
   return (
     <div className="max-w-6xl flex flex-col gap-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-2">
         <div>
           <h1 className="text-2xl font-display font-extrabold text-gt-text">Reports</h1>
           <p className="text-sm text-gt-muted">Generate and download analytical and compliance reports.</p>
         </div>
+        {isDemoUser && (
+          <div className="rounded-xl border border-gt-surface2 bg-gt-surface px-4 py-3 text-sm text-gt-muted">
+            Demo users can preview report summaries and export sample data. Compliance snapshots and schedules are admin-only features and will remain disabled in demo mode.
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -197,6 +226,15 @@ export default function ReportsPage() {
                 <div className="mt-4 text-xs text-gt-muted">
                   Last generated: {report.lastGenerated}
                 </div>
+                <div className="mt-4 text-sm font-semibold text-gt-text">Sample details</div>
+                <ul className="mt-2 space-y-2 text-xs text-gt-muted">
+                  {REPORT_SAMPLES[report.id].map((line) => (
+                    <li key={line} className="flex items-start gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-gt-accent flex-shrink-0" />
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
               <div className="border-t border-[rgba(255,255,255,0.05)] p-4 bg-[rgba(255,255,255,0.02)] flex justify-between items-center">
                 <button
@@ -281,9 +319,10 @@ export default function ReportsPage() {
 
       <Panel className="p-5">
         <h2 className="text-lg font-bold text-gt-text mb-3">Compliance Snapshots & Schedules</h2>
-        <div className="flex gap-2 mb-3">
+        <div className="flex flex-wrap gap-2 mb-3">
           <button
-            className="text-xs px-2 py-1 border border-[rgba(255,255,255,0.2)] rounded"
+            disabled={!canManageCompliance}
+            className="text-xs px-2 py-1 rounded border border-[rgba(255,255,255,0.2)] bg-gt-bg text-gt-text disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gt-surface2 transition-colors"
             onClick={async () => {
               const end = new Date();
               const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -295,7 +334,8 @@ export default function ReportsPage() {
             Create 7-Day Snapshot
           </button>
           <button
-            className="text-xs px-2 py-1 border border-[rgba(255,255,255,0.2)] rounded"
+            disabled={!canManageCompliance}
+            className="text-xs px-2 py-1 rounded border border-[rgba(255,255,255,0.2)] bg-gt-bg text-gt-text disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gt-surface2 transition-colors"
             onClick={async () => {
               await createComplianceSchedule({ name: 'Weekly Compliance', frequency: 'weekly', dayOfWeekUtc: 1, hourUtc: 1 });
               toast.success('Compliance schedule created');
@@ -305,6 +345,11 @@ export default function ReportsPage() {
             Add Weekly Schedule
           </button>
         </div>
+        {!canManageCompliance && (
+          <div className="text-xs text-gt-muted">
+            Compliance snapshot and schedule management is restricted to admin accounts. Sign in as admin to use these features.
+          </div>
+        )}
         <div className="text-xs text-gt-muted">
           Snapshots: {complianceSnapshots?.length || 0} | Schedules: {complianceSchedules?.length || 0}
         </div>

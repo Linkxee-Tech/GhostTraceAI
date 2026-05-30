@@ -24,6 +24,10 @@ const DEMO_GEO = [
 export default function OverviewPage() {
   const { stats, activeAlerts, liveTransactions, agentActions } = useStore();
 
+  const hasAnyData = Boolean(
+    stats || activeAlerts.length > 0 || liveTransactions.length > 0 || agentActions.length > 0
+  );
+
   // Derive risk factors from most recent high-risk open alert
   const latestAlert = activeAlerts.find((a) => a.status === 'open' && a.fraudScore >= 50);
 
@@ -57,6 +61,11 @@ export default function OverviewPage() {
         />
       </div>
 
+      {!hasAnyData && (
+        <div className="rounded-2xl border border-[rgba(255,255,255,0.08)] bg-gt-surface p-5 text-sm text-gt-muted">
+          No live dashboard data is available yet. If you are using a demo account, this page will populate once the demo state is initialized or you connect to a live backend.
+        </div>
+      )}
       {/* ── Row 1: Transaction Feed + Threat Gauge ── */}
       <div className="grid gap-5" style={{ gridTemplateColumns: '1fr 220px' }}>
         <TransactionFeed />
