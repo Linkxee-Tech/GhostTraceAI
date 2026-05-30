@@ -59,6 +59,8 @@ spec:
                   key: latest
             - name: CORS_ORIGINS
               value: "https://ghosttrace-ai.web.app,https://ghosttrace-frontend-HASH-uc.a.run.app"
+            - name: SEED_DEFAULT_USERS
+              value: "true"
           livenessProbe:
             httpGet:
               path: /api/v1/health
