@@ -90,12 +90,23 @@ function AlertRow({ alert, onAcknowledge, onResolve }: AlertRowProps) {
 }
 
 export function AlertsPanel() {
-  const { activeAlerts, dismissAlert } = useStore();
+  const { activeAlerts, dismissAlert, setActiveAlerts, currentUser } = useStore();
+  const isDemoUser = currentUser?.accountType === 'demo' || (currentUser?.email || '').toLowerCase().includes('demo');
   const openAlerts = activeAlerts.filter(
     (a) => a.status === 'open' || a.status === 'acknowledged'
   );
 
   const handleAcknowledge = async (alertId: string) => {
+    if (isDemoUser) {
+      setActiveAlerts(activeAlerts.map((alert) =>
+        alert.alertId === alertId
+          ? { ...alert, status: 'acknowledged', acknowledgedBy: 'demo', acknowledgedAt: new Date().toISOString() }
+          : alert
+      ));
+      toast.success('Alert acknowledged');
+      return;
+    }
+
     try {
       await acknowledgeAlert(alertId);
       toast.success('Alert acknowledged');
@@ -105,6 +116,17 @@ export function AlertsPanel() {
   };
 
   const handleResolve = async (alertId: string) => {
+    if (isDemoUser) {
+      setActiveAlerts(activeAlerts.map((alert) =>
+        alert.alertId === alertId
+          ? { ...alert, status: 'false_positive', resolvedBy: 'demo', resolvedAt: new Date().toISOString() }
+          : alert
+      ));
+      dismissAlert(alertId);
+      toast.success('Marked as false positive');
+      return;
+    }
+
     try {
       await resolveAlert(alertId, 'false_positive');
       dismissAlert(alertId);

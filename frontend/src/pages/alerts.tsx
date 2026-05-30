@@ -29,9 +29,21 @@ const STATUS_FILTERS = [
 function AlertCard({ alert, onRefresh }: { alert: FraudAlert; onRefresh: () => void }) {
   const [expanded,   setExpanded]   = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const { dismissAlert } = useStore();
+  const { dismissAlert, activeAlerts, setActiveAlerts, currentUser } = useStore();
+  const isDemoUser = currentUser?.accountType === 'demo' || (currentUser?.email || '').toLowerCase().includes('demo');
 
   const handleAck = async () => {
+    if (isDemoUser) {
+      setActiveAlerts(activeAlerts.map((item) =>
+        item.alertId === alert.alertId
+          ? { ...item, status: 'acknowledged', acknowledgedBy: 'demo', acknowledgedAt: new Date().toISOString() }
+          : item
+      ));
+      toast.success('Alert acknowledged');
+      onRefresh();
+      return;
+    }
+
     try {
       setSubmitting(true);
       await acknowledgeAlert(alert.alertId);
@@ -42,6 +54,13 @@ function AlertCard({ alert, onRefresh }: { alert: FraudAlert; onRefresh: () => v
   };
 
   const handleResolve = async (outcome: string) => {
+    if (isDemoUser) {
+      setActiveAlerts(activeAlerts.filter((item) => item.alertId !== alert.alertId));
+      toast.success(`Resolved as ${outcome.replace(/_/g, ' ')}`);
+      onRefresh();
+      return;
+    }
+
     try {
       setSubmitting(true);
       await resolveAlert(alert.alertId, outcome);

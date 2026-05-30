@@ -42,7 +42,7 @@ export default function Sidebar() {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 h-full z-50 w-64 bg-gt-surface border-r border-[rgba(255,255,255,0.04)] transition-transform lg:translate-x-0',
+        'fixed left-0 top-0 h-full max-h-screen z-50 w-64 bg-gt-surface border-r border-[rgba(255,255,255,0.04)] transition-transform lg:translate-x-0 overflow-y-auto',
         sidebarOpen ? 'translate-x-0' : '-translate-x-64'
       )}
       aria-hidden={!sidebarOpen}

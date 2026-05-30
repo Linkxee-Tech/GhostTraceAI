@@ -95,7 +95,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isDemoUser =
     currentUser?.accountType === 'demo' ||
     (currentUser?.email || '').toLowerCase().includes('demo');
-  useDemoData(authChecked && (isDemoUser || !wsConnected));
+  useDemoData(authChecked && isDemoUser);
 
   const collapseSidebarOnMobile = () => {
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
@@ -174,7 +174,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-gt-bg flex flex-col">
+    <div className="min-h-screen bg-gt-bg flex flex-col lg:pl-64">
       <Head>
         <title>GhostTrace AI AI - Fraud Intelligence Platform</title>
         <meta name="description" content="Autonomous real-time fraud detection and response agent powered by Gemini AI and MongoDB" />
