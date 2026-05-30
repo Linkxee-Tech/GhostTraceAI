@@ -50,6 +50,16 @@ async function start() {
   });
 
   // ── 4. Start HTTP server immediately ──────────────────────
+  // Optionally wait for DB to be ready before listening. This can be
+  // enabled in environments where accepting requests before DB is
+  // undesirable (set WAIT_FOR_DB=true). Default behavior is to start
+  // the HTTP server immediately and connect to MongoDB in background.
+  if (config.app.waitForDb) {
+    logger.info('WAIT_FOR_DB enabled — attempting to connect to MongoDB before listening');
+    await connect();
+    logger.info('MongoDB connected — proceeding to start HTTP server');
+  }
+
   await new Promise((resolve, reject) => {
     server.listen(config.app.port, (err) => {
       if (err) return reject(err);
@@ -62,9 +72,22 @@ async function start() {
     `GhostTrace AI HTTP server running on port ${config.app.port}`
   );
 
-  // ── 5. Connect to MongoDB in background with retries ──────
+  // Start DB connect in background if we didn't wait for it above
   const broadcastFn = (event, data) => broadcast(event, data);
-  connectWithRetry(broadcastFn);
+  if (!config.app.waitForDb) {
+    connectWithRetry(broadcastFn);
+  } else {
+    // If we waited successfully, still initialize change streams and agent
+    try {
+      await startChangeStream(async (txnDoc) => {
+        await processTransaction(txnDoc, broadcastFn);
+      });
+      await reprocessPendingTransactions(broadcastFn);
+    } catch (err) {
+      logger.warn({ err: err.message }, 'Failed to initialize change stream after waiting for DB — falling back to background retry');
+      connectWithRetry(broadcastFn);
+    }
+  }
 }
 
 // ── Graceful shutdown ─────────────────────────────────────────

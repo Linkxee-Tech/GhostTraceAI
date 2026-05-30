@@ -83,6 +83,8 @@ const config = {
     isDev: process.env.NODE_ENV === 'development',
     isProd: process.env.NODE_ENV === 'production',
     isTest: process.env.NODE_ENV === 'test',
+    // When true the server will wait for MongoDB to connect before listening.
+    waitForDb: process.env.WAIT_FOR_DB === 'true',
   },
 
   mongodb: {
