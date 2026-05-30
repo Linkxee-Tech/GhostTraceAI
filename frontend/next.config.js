@@ -18,6 +18,20 @@ const nextConfig = {
       },
     ];
   },
+  async rewrites() {
+    const backendHost = process.env.NEXT_PUBLIC_API_URL?.trim();
+    if (!backendHost) {
+      return [];
+    }
+
+    const destination = `${backendHost.replace(/\/+$/, '')}/api/:path*`;
+    return [
+      {
+        source: '/api/:path*',
+        destination,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
