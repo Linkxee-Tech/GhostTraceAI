@@ -168,7 +168,7 @@ async function processQueueJobs() {
         details: { jobId: job.jobId, attempts: job.attempts, maxAttempts: job.maxAttempts },
         success: false,
         errorMessage: err.message,
-      }).catch(() => {});
+      }).catch((auditErr) => logger.error({ auditErr }, 'Failed to write stream_error audit log'));
     }
   }
 }

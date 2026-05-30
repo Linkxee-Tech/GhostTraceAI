@@ -257,7 +257,7 @@ router.post(
       });
     }
     if (jobs.length > 0) {
-      await ProcessingQueueJob.insertMany(jobs, { ordered: false }).catch(() => {});
+      await ProcessingQueueJob.insertMany(jobs, { ordered: false }).catch((insertErr) => logger.warn({ insertErr }, 'Failed to insert replay jobs (some may be duplicates)'));
     }
     res.json({ success: true, data: { queuedJobs: jobs.length, candidateEvents: events.length } });
   }

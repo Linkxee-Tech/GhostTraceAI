@@ -16,7 +16,15 @@ async function connectWithRetry(broadcastFn, attempt = 1) {
   try {
     await connect();
 
-    logger.info('MongoDB connected — starting change stream and agent pipeline');
+    logger.info('MongoDB connected — starting MCP server, change stream and agent pipeline');
+
+    // Start MCP server after DB connection so tools have DB access
+    try {
+      await startMcpServer();
+      logger.info('MCP server started successfully after DB connect');
+    } catch (mcpErr) {
+      logger.warn({ err: mcpErr }, 'Failed to start MCP server after DB connect — continuing');
+    }
 
     await startChangeStream(async (txnDoc) => {
       await processTransaction(txnDoc, broadcastFn);
@@ -44,10 +52,7 @@ async function start() {
   // ── 2. Initialize WebSocket ────────────────────────────────
   initWebSocket(server);
 
-  // ── 3. Start MCP server ────────────────────────────────────
-  await startMcpServer().catch((err) => {
-    logger.warn({ err: err.message }, 'MCP server failed to start — continuing without MCP');
-  });
+  // NOTE: MCP server will be started after MongoDB is connected (see connectWithRetry)
 
   // ── 4. Start HTTP server immediately ──────────────────────
   // Optionally wait for DB to be ready before listening. This can be

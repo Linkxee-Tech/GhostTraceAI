@@ -123,7 +123,11 @@ async function ingestEvent({ payload, sourceType, sourceSystem, externalEventId,
       requestMeta,
       processedAt: new Date(),
       rawPayload: payload,
-    }).catch(() => {});
+    }).catch((createErr) => {
+      // Log but don't mask the original error which is re-thrown
+      const logger = require('../utils/logger').forModule('transactionIngestion');
+      logger.warn({ createErr }, 'Failed to write rejected ingestion event');
+    });
     throw err;
   }
 }

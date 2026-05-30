@@ -213,7 +213,7 @@ async function processTransaction(txn, broadcastFn) {
     await auditEvent('stream_error', txn.txnId, txn.accountId, {
       error: err.message,
       latencyMs: Date.now() - pipelineStart,
-    }, false).catch(() => {});
+    }, false).catch((auditErr) => logger.warn({ auditErr }, 'Failed to write stream_error audit log'));
 
     // Safety net: mark as review_required if pipeline fails
     await Transaction.findOneAndUpdate(
@@ -228,7 +228,7 @@ async function processTransaction(txn, broadcastFn) {
           agentActionAt: new Date(),
         },
       }
-    ).catch(() => {});
+    ).catch((updateErr) => logger.warn({ updateErr, txnId: txn.txnId }, 'Failed to mark transaction under_review'));
 
     if (broadcastFn) {
       broadcastFn('agent:error', { txnId: txn.txnId, error: 'Pipeline error — queued for review' });
@@ -240,7 +240,7 @@ async function processTransaction(txn, broadcastFn) {
     // release DB lock if held
     try {
       if (lockAcquired) {
-        await Transaction.findOneAndUpdate({ txnId: txn.txnId }, { $set: { agentLock: false } }).catch(() => {});
+        await Transaction.findOneAndUpdate({ txnId: txn.txnId }, { $set: { agentLock: false } }).catch((releaseErr) => logger.warn({ releaseErr, txnId: txn.txnId }, 'Failed to release agentLock'));
       }
     } catch (e) {
       logger.warn({ err: e }, 'Failed to release agentLock');
