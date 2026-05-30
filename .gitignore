@@ -38,6 +38,7 @@ lcov.info
 !package.json
 !package-lock.json
 !tsconfig.json
+!vercel.json
 
 # OS
 .DS_Store
