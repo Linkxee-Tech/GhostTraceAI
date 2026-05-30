@@ -40,8 +40,14 @@ apiClient.interceptors.response.use(
 );
 
 // ── Stats ────────────────────────────────────────────────────
-export const fetchStats = async (): Promise<DashboardStats> => {
-  const { data } = await apiClient.get<ApiResponse<DashboardStats>>('/stats');
+export const fetchStats = async (options?: { demo?: boolean; fallback?: boolean }): Promise<DashboardStats> => {
+  const params = new URLSearchParams();
+  if (options?.demo) params.append('demo', 'true');
+  if (options?.fallback === false) params.append('fallback', 'false');
+  
+  const { data } = await apiClient.get<ApiResponse<DashboardStats>>(
+    `/stats${params.toString() ? `?${params.toString()}` : ''}`
+  );
   return data.data;
 };
 
@@ -148,6 +154,9 @@ export const fetchIngestionEvents = async (limit = 50): Promise<IngestionEventRe
   const { data } = await apiClient.get<ApiResponse<IngestionEventRecord[]>>('/ingestion/events', { params: { limit } });
   return data.data;
 };
+
+// ── Reports (admin) ─────────────────────────────────────────
+// (see below) helper to fetch compliance snapshots; ensure only one exported symbol exists
 
 export const fetchIngestionSummary = async (hours = 24): Promise<IngestionSummary> => {
   const { data } = await apiClient.get<ApiResponse<IngestionSummary>>('/ingestion/summary', { params: { hours } });

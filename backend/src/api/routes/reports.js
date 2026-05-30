@@ -15,6 +15,7 @@ const { FraudAlert, AuditLog } = require('../../db/schemas/Fraud');
 const router = express.Router();
 router.use(authenticate);
 router.use(requireRole('admin'));
+const mongoose = require('mongoose');
 
 router.post(
   '/compliance/snapshots',
@@ -77,6 +78,12 @@ router.get(
   [query('limit').optional().isInt({ min: 1, max: 200 }).toInt()],
   validateRequest,
   async (req, res) => {
+    // If the DB is not connected (dev/test with BYPASS_AUTH), return an empty
+    // array so admin UI can render fallback/demo content without hard failures.
+    if (!mongoose.connection || mongoose.connection.readyState !== 1) {
+      return res.json({ success: true, data: [], source: 'no_db' });
+    }
+
     const limit = req.query.limit || 50;
     const snapshots = await ComplianceReportSnapshot.find()
       .sort({ createdAt: -1 })

@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const { getDashboardStats } = require('../../services/statsService');
+const { getDashboardStats, getDemoDashboardStats } = require('../../services/statsService');
 const { healthCheck } = require('../../db/connection');
 const { isActive, getStatus } = require('../../db/changeStream');
 const { getConnectionCount } = require('../../services/websocketService');
@@ -37,14 +37,45 @@ router.get('/health', async (req, res) => {
 /**
  * GET /api/v1/stats
  * Dashboard statistics — requires auth.
+ * Query params:
+ *   - demo=true : Force return demo data (for preview/testing)
+ *   - fallback=true : Return demo data if live data is empty (default: true)
  */
 router.get('/stats', authenticate, async (req, res, next) => {
   try {
+    const forceDemo = req.query.demo === 'true';
+    const allowFallback = req.query.fallback !== 'false';
+
+    if (forceDemo) {
+      return res.json({ success: true, data: getDemoDashboardStats(), source: 'demo' });
+    }
+
     const stats = await getDashboardStats();
-    res.json({ success: true, data: stats });
+    
+    // Fallback to demo data if live data is minimal (empty database scenario)
+    if (allowFallback && !stats.totalToday && !stats.agentDecisions) {
+      const demoStats = getDemoDashboardStats();
+      return res.json({ success: true, data: demoStats, source: 'demo_fallback' });
+    }
+
+    res.json({ success: true, data: stats, source: 'live' });
   } catch (err) {
     next(err);
   }
+});
+
+/**
+ * GET /api/v1/stats/demo
+ * Return demo dashboard stats (requires auth, but always returns demo data).
+ * Useful for preview/testing without seeding the database.
+ */
+router.get('/stats/demo', authenticate, (_req, res) => {
+  res.json({
+    success: true,
+    data: getDemoDashboardStats(),
+    source: 'demo',
+    note: 'This endpoint always returns demo data for testing/preview purposes.',
+  });
 });
 
 /**

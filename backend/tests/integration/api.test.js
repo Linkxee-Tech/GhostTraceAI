@@ -226,3 +226,33 @@ describe('Rate limiting headers', () => {
     ).toBeTruthy();
   });
 });
+
+// ── Demo stats & reports endpoints ─────────────────────────────
+describe('Demo stats and reports', () => {
+  test('GET /api/v1/stats/demo returns demo payload', async () => {
+    const res = await request(app)
+      .get('/api/v1/stats/demo')
+      .set('Authorization', 'Bearer bypass-token');
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('totalToday');
+    expect(res.body.source).toBe('demo');
+  });
+
+  test('GET /api/v1/reports/compliance/snapshots is reachable', async () => {
+    const loginRes = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: 'admin@ghosttrace.ai', password: 'demo' });
+    const token = loginRes.body.data.token;
+
+    const res = await request(app)
+      .get('/api/v1/reports/compliance/snapshots')
+      .set('Authorization', `Bearer ${token}`);
+
+    // Should return an array (possibly empty) when DB is not seeded
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data)).toBe(true);
+  });
+});

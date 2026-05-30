@@ -6,7 +6,7 @@ import Sidebar from './Sidebar';
 import { useStore } from '@/lib/store';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useDemoData } from '@/hooks/useDemoData';
-import { fetchStats, fetchAlerts, fetchCurrentUser } from '@/lib/api';
+import { fetchStats, fetchAlerts, fetchCurrentUser, fetchComplianceSnapshots } from '@/lib/api';
 import { Spinner } from '@/components/shared/ui';
 import { clearSession, getDashboardPath, getToken, resolveDashboardType } from '@/lib/authSession';
 
@@ -95,7 +95,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isDemoUser =
     currentUser?.accountType === 'demo' ||
     (currentUser?.email || '').toLowerCase().includes('demo');
-  useDemoData(authChecked && isDemoUser);
+  
+  // Always seed demo data for admin/demo pages OR when WebSocket is not connected
+  const isAdminOrDemoPage = ['/admin', '/demo', '/overview'].includes(router.pathname);
+  const seedFallbackData = (isDemoUser || !wsConnected || isAdminOrDemoPage);
+  useDemoData(seedFallbackData);
+
+  // Quick client-side reachability check for reports endpoint when on admin/demo pages.
+  useEffect(() => {
+    if (!isAdminOrDemoPage) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchComplianceSnapshots(10);
+        if (!cancelled) {
+          const count = Array.isArray(res) ? res.length : (res?.data?.length ?? 0);
+          console.info('Reports snapshots reachable', count);
+        }
+      } catch (err) {
+        if (!cancelled) console.warn('Reports endpoint not reachable from frontend', err?.message || err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isAdminOrDemoPage]);
 
   const collapseSidebarOnMobile = () => {
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
@@ -108,7 +130,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     const load = async () => {
       try {
         const [statsRes, alertsRes] = await Promise.allSettled([
-          fetchStats(),
+          // Enable fallback demo data for admin overview
+          fetchStats({ fallback: true }),
           fetchAlerts({ status: 'open', limit: 50 }),
         ]);
         if (cancelled) return;

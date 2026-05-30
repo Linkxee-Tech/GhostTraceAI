@@ -4,6 +4,22 @@ const Transaction  = require('../db/schemas/Transaction');
 const { FraudAlert, AgentAction } = require('../db/schemas/Fraud');
 
 /**
+ * Demo stats — used as fallback when database has no data or during testing.
+ */
+function getDemoDashboardStats() {
+  return {
+    totalToday: 12847,
+    fraudDetected: 23,
+    pendingReview: 8,
+    agentDecisions: 147,
+    avgLatencyMs: 284,
+    accuracy: 98.2,
+    threatLevel: 73,
+    blockedAmount: 93892,
+  };
+}
+
+/**
  * Compute dashboard stats. Results are lightweight aggregations
  * designed to run in <100ms against indexed collections.
  */
@@ -85,4 +101,4 @@ async function getDashboardStats() {
   };
 }
 
-module.exports = { getDashboardStats };
+module.exports = { getDashboardStats, getDemoDashboardStats };
