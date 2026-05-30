@@ -19,7 +19,9 @@ const nextConfig = {
     ];
   },
   async rewrites() {
-    const backendHost = process.env.NEXT_PUBLIC_API_URL?.trim();
+    const apiHost = process.env.NEXT_PUBLIC_API_URL?.trim();
+    const wsHost = process.env.NEXT_PUBLIC_WS_URL?.trim();
+    const backendHost = apiHost || (wsHost ? wsHost.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://') : undefined);
     if (!backendHost) {
       return [];
     }

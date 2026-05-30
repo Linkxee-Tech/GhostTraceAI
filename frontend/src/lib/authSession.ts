@@ -43,15 +43,31 @@ export function persistSession(token: string, user?: Pick<UserAccount, 'role' | 
   }
 }
 
+function deriveApiHostFromWs(wsUrl?: string): string | undefined {
+  if (!wsUrl) return undefined;
+  const trimmed = wsUrl.trim().replace(/\/+$/, '');
+  if (trimmed.startsWith('wss://')) return trimmed.replace(/^wss:\/\//, 'https://');
+  if (trimmed.startsWith('ws://')) return trimmed.replace(/^ws:\/\//, 'http://');
+  return undefined;
+}
+
+function deriveWsHostFromApi(apiUrl?: string): string | undefined {
+  if (!apiUrl) return undefined;
+  const trimmed = apiUrl.trim().replace(/\/+$/, '');
+  if (trimmed.startsWith('https://')) return trimmed.replace(/^https:\/\//, 'wss://');
+  if (trimmed.startsWith('http://')) return trimmed.replace(/^http:\/\//, 'ws://');
+  return undefined;
+}
+
 export function getApiHost(): string {
+  const envHost = process.env.NEXT_PUBLIC_API_URL?.trim();
+  const envWs = process.env.NEXT_PUBLIC_WS_URL?.trim();
+  const configured = envHost ? envHost.replace(/\/+$/g, '') : deriveApiHostFromWs(envWs);
+
   if (typeof window === 'undefined') {
-      const envHost = process.env.NEXT_PUBLIC_API_URL?.trim();
-      if (envHost) return envHost.replace(/\/+$/g, '');
-      return 'http://localhost:3001';
+    return configured || 'http://localhost:3001';
   }
 
-    const envHost = process.env.NEXT_PUBLIC_API_URL?.trim();
-    const configured = envHost ? envHost.replace(/\/+$/g, '') : undefined;
   if (configured) return configured;
 
   const origin = window.location.origin;
@@ -62,9 +78,9 @@ export function getApiHost(): string {
   // If deployed and NEXT_PUBLIC_API_URL is not set, warn — this will cause
   // the frontend to send API requests to the same origin (likely Vercel),
   // which will return 404 unless the backend is hosted there or a rewrite is configured.
-  if (!configured && !origin.includes('localhost')) {
+  if (!origin.includes('localhost')) {
     // eslint-disable-next-line no-console
-    console.warn('NEXT_PUBLIC_API_URL is not set; API requests will use the frontend origin. Set NEXT_PUBLIC_API_URL to your backend URL or add a rewrite in Vercel.');
+    console.warn('NEXT_PUBLIC_API_URL is not set; API requests are using the frontend origin. Set NEXT_PUBLIC_API_URL to your backend URL or add a rewrite in Vercel.');
   }
 
   return origin.replace(/\/+$/g, '');
@@ -72,7 +88,8 @@ export function getApiHost(): string {
 
 export function getWebSocketUrl(): string {
   const envWs = process.env.NEXT_PUBLIC_WS_URL?.trim();
-  const configured = envWs ? envWs.replace(/\/+$/g, '') : undefined;
+  const envHost = process.env.NEXT_PUBLIC_API_URL?.trim();
+  const configured = envWs ? envWs.replace(/\/+$/g, '') : deriveWsHostFromApi(envHost);
   if (configured) return configured;
   if (typeof window === 'undefined') return 'http://localhost:3001';
 

@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://<your-backend-host>/api/:path*"
+      "destination": "https://ghosttraceai.onrender.com/api/:path*"
     }
   ]
 }
