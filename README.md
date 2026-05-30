@@ -155,6 +155,28 @@ To avoid "works on Vercel but fails locally" auth issues, keep these aligned:
 - Optional preview domains: `ALLOW_VERCEL_PREVIEW_ORIGINS=true`
 - Keep `BYPASS_AUTH=false` outside local-only debugging.
 
+### Vercel deployment notes
+
+If your frontend is deployed on Vercel and your backend is hosted separately, use a rewrite so `/api/*` requests are proxied to the backend. Create a root-level `vercel.json` file like this:
+
+```json
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://<your-backend-host>/api/:path*"
+    }
+  ]
+}
+```
+
+Then set `NEXT_PUBLIC_API_URL` in your Vercel project environment variables to your backend host, for example:
+
+- `NEXT_PUBLIC_API_URL=https://<your-backend-host>`
+- `NEXT_PUBLIC_WS_URL=wss://<your-backend-host>`
+
+This ensures the frontend and Vercel know the real API backend location.
+
 ### 3. Start both services
 
 ```bash

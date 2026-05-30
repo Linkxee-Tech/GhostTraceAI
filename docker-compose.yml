@@ -11,6 +11,7 @@ services:
     environment:
       NODE_ENV: development
       PORT: 8080
+      WAIT_FOR_DB: true
       MONGODB_URI: ${MONGODB_URI}
       MONGODB_DB_NAME: ${MONGODB_DB_NAME:-ghosttrace}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY}
