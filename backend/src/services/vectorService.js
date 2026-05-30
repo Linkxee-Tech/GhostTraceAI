@@ -12,7 +12,10 @@ let embeddingModel = null;
 function getClient() {
   if (!geminiClient) {
     const apiKey = process.env.GOOGLE_API_KEY;
-    if (!apiKey) throw new Error('GOOGLE_API_KEY environment variable not set');
+    if (!apiKey) {
+      logger.warn('GOOGLE_API_KEY not set — vector embeddings disabled');
+      return null;
+    }
     geminiClient = new GoogleGenerativeAI(apiKey);
   }
   return geminiClient;
@@ -21,6 +24,7 @@ function getClient() {
 function getEmbeddingModel() {
   if (!embeddingModel) {
     const client = getClient();
+    if (!client) return null;
     embeddingModel = client.getGenerativeModel({
       model: config.gemini.embeddingModel,
     });
@@ -95,6 +99,10 @@ function cosineSimilarity(a, b) {
 
 async function generateEmbedding(text) {
   const model = getEmbeddingModel();
+  if (!model) {
+    // No model available — return null to let callers handle fallback
+    return null;
+  }
   const raw = await model.embedContent({ content: sanitizeText(text) });
   const embedding = normalizeEmbeddingResponse(raw);
   if (!embedding || !Array.isArray(embedding)) {
@@ -183,6 +191,10 @@ async function persistTransactionEmbedding(txn) {
   }
   try {
     const aiVector = await generateTransactionEmbedding(txn);
+    if (!aiVector) {
+      logger.warn({ txnId: txn.txnId }, 'No embedding generated — skipping persist');
+      return null;
+    }
     await Transaction.updateOne({ txnId: txn.txnId }, { $set: { aiVector } });
     return aiVector;
   } catch (err) {

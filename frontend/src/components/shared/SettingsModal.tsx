@@ -106,7 +106,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(255,255,255,0.07)]">
           <div>
             <h2 className="text-[15px] font-bold font-display text-gt-text">Settings</h2>
-            <p className="text-[11px] font-mono text-gt-muted">Rules · Alerts · Display</p>
+            <p className="text-[11px] font-mono text-gt-muted">Agent · Alerts · Display</p>
           </div>
           <button
             onClick={onClose}

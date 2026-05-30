@@ -176,8 +176,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gt-bg flex flex-col">
       <Head>
-        <title>GhostTrace - Fraud Monitoring Dashboard</title>
-        <meta name="description" content="Monitor fraud alerts and transaction risk with Gemini and MongoDB." />
+        <title>GhostTrace AI AI - Fraud Intelligence Platform</title>
+        <meta name="description" content="Autonomous real-time fraud detection and response agent powered by Gemini AI and MongoDB" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 

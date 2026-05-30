@@ -59,6 +59,14 @@ export function getApiHost(): string {
     return 'http://localhost:3001';
   }
 
+  // If deployed and NEXT_PUBLIC_API_URL is not set, warn — this will cause
+  // the frontend to send API requests to the same origin (likely Vercel),
+  // which will return 404 unless the backend is hosted there or a rewrite is configured.
+  if (!configured && !origin.includes('localhost')) {
+    // eslint-disable-next-line no-console
+    console.warn('NEXT_PUBLIC_API_URL is not set; API requests will use the frontend origin. Set NEXT_PUBLIC_API_URL to your backend URL or add a rewrite in Vercel.');
+  }
+
   return origin.replace(/\/+$/g, '');
 }
 

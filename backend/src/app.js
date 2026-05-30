@@ -88,6 +88,26 @@ function createApp() {
   // ── Rate limiting ─────────────────────────────────────────────
   app.use('/api/', apiLimiter);
 
+  // ── DB readiness guard ─────────────────────────────────────────
+  // Prevent routes that rely on MongoDB from throwing during startup
+  app.use((req, res, next) => {
+    try {
+      const path = req.path || '';
+      const isApi = path.startsWith('/api/');
+      const isHealth = path === '/api/v1/health' || path === '/api/health';
+      const dbReady = mongoose.connection && mongoose.connection.readyState === 1;
+
+      if (isApi && !isHealth && !dbReady) {
+        // In development, allow BYPASS_AUTH mode to function without DB
+        if (process.env.BYPASS_AUTH === 'true' && process.env.NODE_ENV !== 'production') return next();
+        return res.status(503).json({ error: 'Service unavailable: database not connected' });
+      }
+    } catch (err) {
+      // fall through to next so we don't block error handlers
+    }
+    return next();
+  });
+
   // ── Routes ───────────────────────────────────────────────────
   app.use('/api/v1/auth',         authRoutes);
   app.use('/api/v1/users',        userRoutes);
