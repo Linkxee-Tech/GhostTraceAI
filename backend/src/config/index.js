@@ -85,6 +85,8 @@ const config = {
     isTest: process.env.NODE_ENV === 'test',
     // When true the server will wait for MongoDB to connect before listening.
     waitForDb: process.env.WAIT_FOR_DB === 'true',
+    // When true and the users collection is empty, seed initial demo/user/admin accounts.
+    seedDefaultUsers: process.env.SEED_DEFAULT_USERS === 'true',
   },
 
   mongodb: {

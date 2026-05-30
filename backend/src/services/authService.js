@@ -221,6 +221,24 @@ async function resetPassword(token, newPassword) {
   return user.toPublicJson();
 }
 
+async function seedDefaultUsers() {
+  const existing = await User.countDocuments();
+  if (existing > 0) return { seeded: false, reason: 'users already exist' };
+
+  const adminEmail = process.env.DEFAULT_ADMIN_EMAIL || 'admin@example.com';
+  const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'password123';
+  const userEmail = process.env.DEFAULT_USER_EMAIL || 'user@example.com';
+  const userPassword = process.env.DEFAULT_USER_PASSWORD || 'password123';
+  const demoEmail = process.env.DEFAULT_DEMO_EMAIL || 'demo@ghosttrace.ai';
+  const demoPassword = process.env.DEFAULT_DEMO_PASSWORD || 'demo';
+
+  await createUser({ email: adminEmail, password: adminPassword, name: 'Admin User', role: 'admin' });
+  await createUser({ email: userEmail, password: userPassword, name: 'Regular User', role: 'analyst' });
+  await createUser({ email: demoEmail, password: demoPassword, name: 'Demo User', role: 'analyst' });
+
+  return { seeded: true, users: [adminEmail, userEmail, demoEmail] };
+}
+
 async function findUserBySession(userId, sessionId) {
   return User.findOne({ userId, 'sessions.sessionId': sessionId, 'sessions.isActive': true });
 }
@@ -245,6 +263,7 @@ module.exports = {
   exchangeApiKeyForToken,
   loginWithEmail,
   createUser,
+  seedDefaultUsers,
   listUsers,
   updateUser,
   revokeSession,

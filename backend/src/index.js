@@ -16,6 +16,19 @@ async function connectWithRetry(broadcastFn, attempt = 1) {
   try {
     await connect();
 
+    if (config.app.seedDefaultUsers) {
+      try {
+        const { seeded, users, reason } = await require('./services/authService').seedDefaultUsers();
+        if (seeded) {
+          logger.info({ users }, 'Seeded default user accounts');
+        } else {
+          logger.info({ reason }, 'Skipped seeding default users');
+        }
+      } catch (seedErr) {
+        logger.warn({ err: seedErr }, 'Failed to seed default users');
+      }
+    }
+
     logger.info('MongoDB connected — starting MCP server, change stream and agent pipeline');
 
     // Start MCP server after DB connection so tools have DB access

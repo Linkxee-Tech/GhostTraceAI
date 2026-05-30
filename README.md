@@ -154,6 +154,8 @@ To avoid "works on Vercel but fails locally" auth issues, keep these aligned:
 - Backend production: `CORS_ORIGINS=https://ghosttraceai.vercel.app`
 - Optional preview domains: `ALLOW_VERCEL_PREVIEW_ORIGINS=true`
 - Keep `BYPASS_AUTH=false` outside local-only debugging.
+- To seed default demo/admin/user accounts on first startup, set `SEED_DEFAULT_USERS=true` in backend environment.
+- To enable demo login in production, set `NEXT_PUBLIC_AUTH_DEMO_ENABLED=true` on the frontend.
 
 ### Vercel deployment notes
 
@@ -176,6 +178,16 @@ Then set `NEXT_PUBLIC_API_URL` in your Vercel project environment variables to y
 - `NEXT_PUBLIC_WS_URL=wss://<your-backend-host>`
 
 This ensures the frontend and Vercel know the real API backend location.
+
+### Default demo and admin accounts
+
+If the backend database is empty, you can seed default accounts by setting `SEED_DEFAULT_USERS=true` in the backend environment. The seeded accounts are:
+
+- Admin: `admin@example.com` / `password123`
+- User: `user@example.com` / `password123`
+- Demo: `demo@ghosttrace.ai` / `demo`
+
+For production demo login to work, also set `NEXT_PUBLIC_AUTH_DEMO_ENABLED=true` on the frontend.
 
 ### 3. Start both services
 

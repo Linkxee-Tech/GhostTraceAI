@@ -12,7 +12,7 @@ const app = createApp();
 
 async function run() {
   const scenarios = [
-    { label: 'Demo login', email: 'demo@ghosttrace.ai', password: 'demo-password' },
+    { label: 'Demo login', email: 'demo@ghosttrace.ai', password: 'demo' },
     { label: 'Admin login', email: 'admin@ghosttrace.ai', password: 'admin-password' },
     { label: 'User login', email: 'user@ghosttrace.ai', password: 'user-password' },
   ];
